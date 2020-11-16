@@ -76,14 +76,31 @@ namespace WebCrawler
 
                 var file = Path.Join(this.rootPath, nextUri.LocalPath);
                 Directory.CreateDirectory(Path.GetDirectoryName(file));
-                UrlHelper.Download(nextUri, file);
 
-                var indexUrls = new HashSet<Uri>();
-                Parse(file, indexUrls, urls);
-                
-                foreach (var index in indexUrls)
+                try
                 {
-                    queue.Enqueue(index);
+                    var res = new AsyncDonwload().DownloadAsync(nextUri, file);
+                    res.Wait();
+                    if (!res.Result)
+                    {
+                        Trace.TraceError(string.Format("Failed to download {0} to {1}", nextUri.LocalPath, file));
+                        continue;
+                    }
+
+                    var indexUrls = new HashSet<Uri>();
+                    Parse(file, indexUrls, urls);
+                    
+                    foreach (var index in indexUrls)
+                    {
+                        queue.Enqueue(index);
+                    }
+                }
+                finally
+                {
+                    if ( !this.saveSitemapFiles && File.Exists(file) )
+                    {
+                        File.Delete(file);
+                    }
                 }
             }
 
@@ -108,11 +125,11 @@ namespace WebCrawler
                 return;
             }
 
-            var urlsPath = Path.Combine(this.rootPath, "urlslookup.txt");
+            var urlsPath = Path.Combine(Directory.GetParent(this.rootPath).FullName, "sitemap.txt");
             using (var file = File.CreateText(urlsPath))
             foreach (var url in this.urls)
             {
-                file.WriteLine(url);
+                file.WriteLine(url.LocalPath);
             }
         }
 
@@ -139,6 +156,11 @@ namespace WebCrawler
             this.disallow = disallow;
 
             this.CreateFromStaticMap();
+
+            if (!this.saveSitemapFiles)
+            {
+                Directory.Delete(this.rootPath, true);
+            }
 
             this.WriteToFile();
         }

@@ -79,7 +79,7 @@ namespace WebCrawler
 
             var agentPolicy = policy.GetAgentPolicy();
             
-            var sitemap = new Sitemap(Program.rootUrl, policy.SitemapUri, rootPath);
+            var sitemap = new Sitemap(Program.rootUrl, policy.SitemapUri, rootPath, false);
             sitemap.Build(agentPolicy.Disallow);
 
             /*var robotsFile = Path.Join(projectFolder, "robots");
