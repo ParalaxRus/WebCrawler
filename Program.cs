@@ -66,7 +66,7 @@ namespace WebCrawler
             Trace.Listeners.Add(new TextWriterTraceListener("crawler.log", "CrawlerListener"));
             Trace.AutoFlush = true;
 
-            var rootPath = Path.Join(Directory.GetCurrentDirectory(), Guid.NewGuid().ToString());
+            var rootPath = Path.Join(Directory.GetCurrentDirectory(), Program.rootUrl.Host);
             Directory.CreateDirectory(rootPath);
 
             var policy = new CrawlPolicy();
