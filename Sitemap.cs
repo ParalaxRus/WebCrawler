@@ -1,8 +1,12 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Linq;
 using System.Xml;
 using System.Diagnostics;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
+using System.Reflection;
 
 namespace WebCrawler
 {
@@ -15,6 +19,23 @@ namespace WebCrawler
         private bool saveUrls = true;
         private HashSet<Uri> urls = null;
         private HashSet<string> disallow = null;
+        private HashSet<string> allow = null;
+
+        private List<Uri> GetResourceOrRoot(bool takeResource)
+        {
+            var res = new List<Uri>();
+
+            foreach (var uri in this.urls)
+            {
+                bool isResource = UrlHelper.IsResourse(uri);
+                if (isResource == takeResource)
+                {
+                    res.Add(uri);
+                }
+            }
+
+            return res;
+        }
 
         private HashSet<Uri> CreateVisited(Uri parent, HashSet<string> filterOut)
         {
@@ -113,15 +134,15 @@ namespace WebCrawler
 
             while (queue.Count != 0)
             {
-                var url = queue.Dequeue();
-                if (visisted.Contains(url))
+                var uri = queue.Dequeue();
+                if (visisted.Contains(uri))
                 {
                     continue;
                 }
 
-                visisted.Add(url);
+                visisted.Add(uri);
 
-                var nextUrls = this.GetSitemapUrls(url);
+                var nextUrls = this.GetSitemapUrls(uri);
                 var indexUrls = nextUrls[0];
                 var concreteUrls = nextUrls[1];
 
@@ -129,7 +150,58 @@ namespace WebCrawler
                 {
                     queue.Enqueue(index);
                 }
+
                 urls.UnionWith(concreteUrls);
+            }
+
+            return urls;
+        }
+
+        private HashSet<Uri> GetSiteUrlsParallel(Uri sitemap)
+        {
+            var visisted = this.CreateVisited(this.rootUrl, this.disallow);
+
+            var urls = new HashSet<Uri>();
+
+            // Dump BFS parallelism processing each level in parallel but syncing between levels
+            // Refactor some sort of a blocking queue is preferrable but need to figure out 
+            // proper producer consumer and parallel bfs with the blocking queue in this case ...
+
+            var level = new List<Uri>();
+            level.Add(sitemap);
+
+            while (level.Count != 0)
+            {
+                var nextLevel = new ConcurrentBag<Uri>();
+
+                Parallel.ForEach(level, (Uri url) => 
+                {
+                    lock (visisted)
+                    {
+                        if (visisted.Contains(url))
+                        {
+                            return;
+                        }
+
+                        visisted.Add(url);
+                    }
+                    
+                    var nextUrls = this.GetSitemapUrls(url);
+                    var indexUrls = nextUrls[0];
+                    var concreteUrls = nextUrls[1];
+
+                    foreach (var index in indexUrls)
+                    {
+                        nextLevel.Add(index);
+                    }
+
+                    lock (urls)
+                    {
+                        urls.UnionWith(concreteUrls);
+                    }
+                }); // Comlpetes when all urls from the same levels are processed
+
+                level = nextLevel.ToList();
             }
 
             return urls;
@@ -143,7 +215,14 @@ namespace WebCrawler
                 return;
             }
 
-            this.urls = GetSiteUrls(this.sitemap);
+            var watch = new Stopwatch();
+            watch.Start();
+
+            this.urls = GetSiteUrlsParallel(this.sitemap);
+
+            watch.Stop();
+
+            Trace.TraceInformation(string.Format("{0}: {1}", MethodBase.GetCurrentMethod(), watch.Elapsed));
         }
 
         private void WriteToFile()
@@ -178,11 +257,13 @@ namespace WebCrawler
             this.sitemap = sitemap;
             this.rootPath = Path.Combine(rootPath, "Sitemap");
             this.saveSitemapFiles = saveSitemapFiles;
+            this.saveUrls = saveUrls;
         }
 
-        public void Build(HashSet<string> disallow)
+        public void Build(HashSet<string> disallow, HashSet<string> allow)
         {
             this.disallow = disallow;
+            this.allow = allow; // Need to take allow into account and unite with disallow !!!
 
             this.CreateFromStaticMap();
 
@@ -192,6 +273,18 @@ namespace WebCrawler
             }
 
             this.WriteToFile();
+        }
+
+        public HashSet<Uri> RawUrls { get { return this.urls; } }
+
+        public List<Uri> Resources
+        {
+            get { return this.GetResourceOrRoot(true); }
+        }
+
+        public List<Uri> Roots
+        {
+            get { return this.GetResourceOrRoot(false); }
         }
     }
 }

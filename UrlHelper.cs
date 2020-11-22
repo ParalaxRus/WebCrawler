@@ -43,5 +43,16 @@ namespace WebCrawler
                 return false;
             }
         }
+
+        public static bool IsResourse(Uri uri)
+        {
+            if (uri.LocalPath.Length == 0)
+            {
+                return false;
+            }
+
+            const char trailingSlash = '/';
+            return (uri.LocalPath[uri.LocalPath.Length - 1] == trailingSlash);
+        }
     }
 }
