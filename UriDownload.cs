@@ -6,7 +6,7 @@ using System.IO;
 
 namespace WebCrawler
 {
-    internal class AsyncDonwload
+    internal class UriDonwload
     {
         private async Task<HttpWebResponse> IssueGetAsync(Uri uri)
         {
@@ -64,6 +64,23 @@ namespace WebCrawler
 
                 return false;
             }
+        }
+
+        public static bool Download(Uri uri, string file)
+        {
+            var downloader = new UriDonwload();
+
+            var task = downloader.DownloadAsync(uri, file);
+            task.Wait();
+
+            if (!task.Result)
+            {
+                Trace.TraceError(string.Format("Failed to download sitemap file from {0} to {1}", 
+                                               uri.LocalPath, 
+                                               file));
+            }
+
+            return task.Result;
         }
     }
 }

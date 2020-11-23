@@ -33,6 +33,9 @@ namespace WebCrawler
 
             var sitemap = new Sitemap(Program.rootUrl, policy.SitemapUri, rootPath, true);
             sitemap.Build(agentPolicy.Disallow, agentPolicy.Allow);
+
+            var scraper = new WebScraper(rootPath, sitemap);
+            scraper.DownloadHtmls();
         }
     }
 }

@@ -21,7 +21,28 @@ namespace WebCrawler
         private HashSet<string> disallow = null;
         private HashSet<string> allow = null;
 
-        private List<Uri> GetResourceOrRoot(bool takeResource)
+        private static bool EndsWith(string value, string[] endsWith)
+        {
+            if (endsWith == null)
+            {
+                return false;
+            }
+
+            foreach (var ends in endsWith)
+            {
+                if (value.EndsWith(ends))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Gets either resources or roots from the list of urls.</summary>
+        /// <param name="takeResource">A value indicating whether to extract resource or root urls.</param>
+        /// <param name="endsWith">Ends with pattern for resource urls.</param>
+        private List<Uri> GetResourceOrRoot(bool takeResource, string[] endsWith = null)
         {
             var res = new List<Uri>();
 
@@ -30,7 +51,10 @@ namespace WebCrawler
                 bool isResource = UrlHelper.IsResourse(uri);
                 if (isResource == takeResource)
                 {
-                    res.Add(uri);
+                    if (Sitemap.EndsWith(uri.LocalPath, endsWith))
+                    {
+                        res.Add(uri);
+                    }
                 }
             }
 
@@ -97,14 +121,8 @@ namespace WebCrawler
 
             try
             {
-                var res = new AsyncDonwload().DownloadAsync(sitemapFile, fileOnDisk);
-                res.Wait();
-                if (!res.Result)
+                if (!UriDonwload.Download(sitemapFile, fileOnDisk))
                 {
-                    Trace.TraceError(string.Format("Failed to download sitemap file from {0} to {1}", 
-                                                   sitemapFile.LocalPath, 
-                                                   fileOnDisk));
-                    
                     // Nothing could be retrieved
                     return urls;
                 }
@@ -277,9 +295,17 @@ namespace WebCrawler
 
         public HashSet<Uri> RawUrls { get { return this.urls; } }
 
-        public List<Uri> Resources
+        public List<Uri> AllResources
         {
             get { return this.GetResourceOrRoot(true); }
+        }
+
+        public List<Uri> HtmlResources
+        {
+            get 
+            { 
+                return this.GetResourceOrRoot(true, new string[] { ".htm", ".html" });
+            }
         }
 
         public List<Uri> Roots

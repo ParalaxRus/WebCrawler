@@ -120,7 +120,7 @@ namespace WebCrawler
 
             try
             {
-                var res = await new AsyncDonwload().DownloadAsync(this.RobotsUri, this.RobotsFile);
+                var res = await new UriDonwload().DownloadAsync(this.RobotsUri, this.RobotsFile);
                 if (!res)
                 {
                     return false;
