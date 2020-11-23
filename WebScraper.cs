@@ -39,7 +39,7 @@ namespace WebCrawler
             return htmls;
         }
 
-        /// <summary>Takes pseudo-random (bicketized) 'count of elements' from urls.</summary>
+        /// <summary>Takes pseudo-random (bucketized) 'count of elements' from urls.</summary>
         private List<Uri> Take(Dictionary<int, Uri> urls, int count)
         {
             if (count <= 0)
@@ -47,12 +47,14 @@ namespace WebCrawler
                 throw new ArgumentException("count");
             }
 
+            int urlsPerBucket = urls.Count / count;
+
             // Pseudo-random = random inside buckets
-            var buckets = new int[urls.Count / count];
+            var buckets = new int[count];
             for (int i = 0; i < buckets.Length; ++i)
             {
-                int start = i * count;
-                buckets[i] = this.random.Next(start, start + count);
+                int start = i * urlsPerBucket;
+                buckets[i] = this.random.Next(start, start + urlsPerBucket);
             }
             
             var sample = new List<Uri>();

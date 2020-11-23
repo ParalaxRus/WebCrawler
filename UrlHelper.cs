@@ -51,8 +51,8 @@ namespace WebCrawler
                 return false;
             }
 
-            const char trailingSlash = '/';
-            return (uri.LocalPath[uri.LocalPath.Length - 1] == trailingSlash);
+            const char trailingSlash = '/'; // Resource does not end with /
+            return (uri.LocalPath[uri.LocalPath.Length - 1] != trailingSlash);
         }
     }
 }

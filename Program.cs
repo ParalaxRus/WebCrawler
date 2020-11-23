@@ -31,7 +31,7 @@ namespace WebCrawler
             // 2) Implement scraper to download index.html from roots
             // 3) What to do with resources ?!
 
-            var sitemap = new Sitemap(Program.rootUrl, policy.SitemapUri, rootPath, true);
+            var sitemap = new Sitemap(Program.rootUrl, policy.SitemapUri, rootPath, false);
             sitemap.Build(agentPolicy.Disallow, agentPolicy.Allow);
 
             var scraper = new WebScraper(rootPath, sitemap);

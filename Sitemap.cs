@@ -39,22 +39,40 @@ namespace WebCrawler
             return false;
         }
 
-        /// <summary>Gets either resources or roots from the list of urls.</summary>
-        /// <param name="takeResource">A value indicating whether to extract resource or root urls.</param>
-        /// <param name="endsWith">Ends with pattern for resource urls.</param>
-        private List<Uri> GetResourceOrRoot(bool takeResource, string[] endsWith = null)
+        /// <summary>Gets resource urls.</summary>
+        /// <param name="endsWith">Resource pattern if any.</param>
+        private List<Uri> GetResources(string[] endsWith = null)
         {
             var res = new List<Uri>();
 
             foreach (var uri in this.urls)
             {
                 bool isResource = UrlHelper.IsResourse(uri);
-                if (isResource == takeResource)
+                if (!isResource)
                 {
-                    if (Sitemap.EndsWith(uri.LocalPath, endsWith))
-                    {
-                        res.Add(uri);
-                    }
+                    continue;
+                }
+
+                if (Sitemap.EndsWith(uri.LocalPath, endsWith))
+                {
+                    res.Add(uri);
+                }
+            }
+
+            return res;
+        }
+
+        /// <summary>Gets root urls.</summary>
+        private List<Uri> GetRoots()
+        {
+            var res = new List<Uri>();
+
+            foreach (var uri in this.urls)
+            {
+                bool isResource = UrlHelper.IsResourse(uri);
+                if (!isResource)
+                {
+                    res.Add(uri);
                 }
             }
 
@@ -85,13 +103,21 @@ namespace WebCrawler
                 // Index urls
                 foreach (XmlNode node in doc.GetElementsByTagName("sitemap"))
                 {
-                    indexUrls.Add(new Uri(node["loc"].InnerText));
+                    var uri = new Uri(node["loc"].InnerText);
+                    if (uri.LocalPath != "/") // root url
+                    {
+                        indexUrls.Add(uri);
+                    }
                 }
 
                 // Urls
                 foreach (XmlNode node in doc.GetElementsByTagName("url"))
                 {
-                    urls.Add(new Uri(node["loc"].InnerText));
+                    var uri = new Uri(node["loc"].InnerText);
+                    if (uri.LocalPath != "/") // root url
+                    {
+                        urls.Add(uri);
+                    }
                 }
             }
             catch(Exception exception)
@@ -297,20 +323,20 @@ namespace WebCrawler
 
         public List<Uri> AllResources
         {
-            get { return this.GetResourceOrRoot(true); }
+            get { return this.GetResources(); }
         }
 
         public List<Uri> HtmlResources
         {
             get 
             { 
-                return this.GetResourceOrRoot(true, new string[] { ".htm", ".html" });
+                return this.GetResources(new string[] { ".htm", ".html" });
             }
         }
 
         public List<Uri> Roots
         {
-            get { return this.GetResourceOrRoot(false); }
+            get { return this.GetRoots(); }
         }
     }
 }
