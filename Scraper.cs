@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
-using System.Threading.Tasks;
+using System.Threading;
 
 namespace WebCrawler
 {
-    internal class WebScraper
+    /// <summary>Web scraper downloads html files from the site using provided sitemap.</summary>
+    internal class Scraper
     {
         string rootPath = null;
 
@@ -17,7 +19,7 @@ namespace WebCrawler
 
         private Dictionary<int, Uri> GetHtmlUrls()
         {
-            // Dictionary is neded because:
+            // Dictionary is needed:
             // 1) To avoid dplicates between htmlResources and (root + index.html)
             // 2) Performance in Take() method
             var htmls = new Dictionary<int, Uri>();
@@ -67,11 +69,35 @@ namespace WebCrawler
             return sample;
         }
 
-        public WebScraper(string rootPath, Sitemap sitemap)
+        private void SlowSequentialDownload(Dictionary<int, Uri> htmls, int delayInSec, BlockingCollection<string> queue)
+        {
+            var samples = this.Take(htmls, 10);
+
+            foreach (var uri in samples)
+            {
+                Thread.Sleep(delayInSec * 1000);
+
+                var file = Path.Join(this.rootPath, uri.LocalPath);
+                Directory.CreateDirectory(Path.GetDirectoryName(file));
+
+                if (UriDonwload.Download(uri, file))
+                {
+                    // Producer: adding downloaded file
+                    queue.Add(file);
+                }
+
+                if (!this.SaveHtmlFiles && File.Exists(file))
+                {
+                    File.Delete(file);
+                }
+            }
+        }
+
+        public Scraper(Sitemap sitemap, string rootPath)
         {
             if (!Directory.Exists(rootPath))
             {
-                throw new ArgumentException(rootPath);
+                throw new ArgumentException(rootPath);  
             }
 
             if (sitemap == null)
@@ -84,24 +110,13 @@ namespace WebCrawler
             this.SaveHtmlFiles = true;
         }
 
-        public void DownloadHtmls()
+        public void DownloadHtmls(BlockingCollection<string> queue)
         {
             var htmls = this.GetHtmlUrls();
 
-            var sample = this.Take(htmls, 10);
+            this.SlowSequentialDownload(htmls, 5, queue);
 
-            Parallel.ForEach(sample, (Uri uri) => 
-            {
-                var file = Path.Join(this.rootPath, uri.LocalPath);
-                Directory.CreateDirectory(Path.GetDirectoryName(file));
-
-                UriDonwload.Download(uri, file);
-
-                if (!this.SaveHtmlFiles && File.Exists(file))
-                {
-                    File.Delete(file);
-                }
-            });
+            queue.CompleteAdding();
         }
     }
 }

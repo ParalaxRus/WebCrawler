@@ -75,7 +75,7 @@ namespace WebCrawler
 
             if (!task.Result)
             {
-                Trace.TraceError(string.Format("Failed to download sitemap file from {0} to {1}", 
+                Trace.TraceError(string.Format("Failed to download {0} to {1}", 
                                                uri.LocalPath, 
                                                file));
             }
