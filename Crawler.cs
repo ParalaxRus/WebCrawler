@@ -12,6 +12,8 @@ namespace WebCrawler
     {
         private Scraper scraper = null;
 
+        private string path = null;
+
         private HashSet<Uri> hostUrls = new HashSet<Uri>();
 
         private BlockingCollection<string> blockingQueue = new BlockingCollection<string>();
@@ -22,14 +24,26 @@ namespace WebCrawler
         /// <summary>A value indicating whether to delete html file after scraping is done or not.</summary>
         public bool DeleteAfterScrape { get; set; }
 
+        /// <summary>A value indicating whether to save retrieved hosts to a file or not.</summary>
+        public bool SaveHosts { get; set; }
+
         /// <summary>Gets hosts urls.</summary>
         public HashSet<Uri> Hosts { get { return this.hostUrls; } }
 
-        private bool IsAbsoluteHttps(string href, out Uri uri)
+        private Uri GetHostUri(string href)
         {
-            bool result = Uri.TryCreate(href, UriKind.Absolute, out uri);
-            
-            return result && ( (uri.Scheme == Uri.UriSchemeHttp) || (uri.Scheme == Uri.UriSchemeHttps) );
+            Uri uri = null;
+            if (!Uri.TryCreate(href, UriKind.Absolute, out uri))
+            {
+                return null;
+            }
+
+            if  ((uri.Scheme != Uri.UriSchemeHttp) && (uri.Scheme != Uri.UriSchemeHttps))
+            {
+                return null;
+            }
+
+            return new UriBuilder(uri.Scheme, uri.Host).Uri;
         }
 
         /// <summary>Gets http/https hosts.</summary>
@@ -44,19 +58,12 @@ namespace WebCrawler
                 {
                     var href = group.ToString();
 
-                    There is a bug here: Produces 0 hosts ...
-
                     try
                     {
-                        Uri uri = null;
-                        if (this.IsAbsoluteHttps(href, out uri))
+                        Uri host = this.GetHostUri(href);
+                        if ((host != null) && !hosts.Contains(host))
                         {
-                            var host = new Uri(uri.Host);
-
-                            if (!hosts.Contains(host))
-                            {
-                                hosts.Add(host);
-                            }
+                            hosts.Add(host);
                         }
                     }
                     catch (Exception exception)
@@ -73,20 +80,29 @@ namespace WebCrawler
         {
             var hosts = new HashSet<Uri>();
 
-            using (var reader = File.OpenText(file))
+            try
             {
-                while (true)
+                using (var reader = File.OpenText(file))
                 {
-                    var line = reader.ReadLine();
-                    if (line == null)
+                    while (true)
                     {
-                        break;
-                    }
+                        var line = reader.ReadLine();
+                        if (line == null)
+                        {
+                            break;
+                        }
 
-                    var hostsFromLine = this.GetHosts(line);
-                    hosts.UnionWith(hostsFromLine);                    
+                        var hostsFromLine = this.GetHosts(line);
+                        hosts.UnionWith(hostsFromLine);                    
+                    }
                 }
-                
+            }
+            finally
+            {
+                if (this.DeleteAfterScrape)
+                {
+                    File.Delete(file);
+                }
             }
 
             return hosts;
@@ -101,10 +117,28 @@ namespace WebCrawler
             }
         }
 
+        private void Save(string file)
+        {
+            if (!this.SaveHosts)
+            {
+                return;
+            }
+
+            using (var writer = new StreamWriter(file))
+            {
+                foreach (var host in this.Hosts)
+                {
+                    writer.WriteLine(host);
+                }
+            }
+        }
+
         public Crawler(Sitemap sitemap, string path)
         {
+            this.path = path;
             this.scraper = new Scraper(sitemap, path);
             this.DeleteAfterScrape = false;
+            this.SaveHosts = true;
         }
 
         public void Start()
@@ -112,6 +146,7 @@ namespace WebCrawler
             // Dowloading htmls in parallel and adding them to the blocking queue
             var task = Task.Run(() => this.scraper.DownloadHtmls(this.blockingQueue) );
 
+            // scraper.DownloadHtmls() completes this loop
             while (!this.blockingQueue.IsCompleted)
             {
                 var htmlFile = this.blockingQueue.Take();
@@ -120,7 +155,10 @@ namespace WebCrawler
                 this.Add(nextHosts);
             }
 
-            // Task should complete by now
+            this.Save(Path.Join(this.path, "hosts.txt"));
+
+            // Task should be done by now because blocking queue loop is over
+            task.Wait();
         }
     }
 }
