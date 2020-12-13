@@ -21,7 +21,7 @@ namespace WebCrawler
         {
             // Dictionary is needed:
             // 1) To avoid dplicates between htmlResources and (root + index.html)
-            // 2) Performance in Take() method
+            // 2) Simplifies and increases performance of Take() method
             var htmls = new Dictionary<int, Uri>();
 
             var htmlResources = this.sitemap.HtmlResources;
@@ -30,7 +30,7 @@ namespace WebCrawler
                 htmls.Add(i, htmlResources[i]);
             }
 
-            // Root might contain index.html
+            // Roots might also be html pages with index.html as default
             var roots = this.sitemap.Roots;
             for (int i = 0; i < roots.Count; ++i)
             {
@@ -69,13 +69,17 @@ namespace WebCrawler
             return sample;
         }
 
-        private void SlowSequentialDownload(Dictionary<int, Uri> htmls, int delayInSec, BlockingCollection<string> queue)
+        private void SlowSequentialDownload(
+            Dictionary<int, Uri> htmls, int[] delayInterval, BlockingCollection<string> queue)
         {
+            var random = new Random();
+
             var samples = this.Take(htmls, 10);
 
             foreach (var uri in samples)
             {
-                Thread.Sleep(delayInSec * 1000);
+                var delay = random.Next(delayInterval[0], delayInterval[1] + 1);
+                Thread.Sleep(delay * 1000);
 
                 var file = Path.Join(this.rootPath, uri.LocalPath);
                 Directory.CreateDirectory(Path.GetDirectoryName(file));
@@ -112,10 +116,13 @@ namespace WebCrawler
 
         public void DownloadHtmls(BlockingCollection<string> queue)
         {
+            // Generating collection of possible html links
             var htmls = this.GetHtmlUrls();
 
-            this.SlowSequentialDownload(htmls, 5, queue);
+            // Slowly and randomly donwloading html pages in order not to be banned by the site
+            this.SlowSequentialDownload(htmls, new int[] { 4, 8 }, queue);
 
+            // No more html links left for the currrent site
             queue.CompleteAdding();
         }
     }

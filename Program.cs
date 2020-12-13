@@ -6,9 +6,6 @@ namespace WebCrawler
 {
     class Program
     {
-        [System.Runtime.InteropServices.DllImport("Kernel32")]
-        public static extern void AllocConsole();
-
         private static readonly Uri rootUrl = new Uri("https://www.google.com/");
 
         private static readonly string rootPath = Path.Join(Directory.GetCurrentDirectory(), Program.rootUrl.Host);
@@ -17,8 +14,6 @@ namespace WebCrawler
 
         private static void Initialize()
         {
-            AllocConsole();
-
             if (Directory.Exists(Program.rootPath))
             {
                 Directory.Delete(Program.rootPath, true);
@@ -34,10 +29,18 @@ namespace WebCrawler
         {
             Program.Initialize();
 
-            Console.WriteLine("Running");
-
-            var policy = new CrawlPolicy();
-            var task = policy.DownloadPolicyAsync(Program.rootUrl, rootPath);
+            var settings = new Site.SiteSettings()
+            {
+                SaveRobotsFile = true,
+                SaveSitemapFiles = false,
+                SaveUrls = true,
+                DeleteHtmlsAfterScrape = true,
+                SaveHosts = true
+            };
+            var site = new Site(Program.rootUrl, Program.rootPath, settings);
+            
+            var policy = new CrawlPolicy(site);
+            var task = policy.DownloadPolicyAsync();
             task.Wait();
             if (!task.Result)
             {
@@ -45,12 +48,27 @@ namespace WebCrawler
             }
 
             var agentPolicy = policy.GetAgentPolicy();
-            
-            var sitemap = new Sitemap(Program.rootUrl, policy.SitemapUri, rootPath, false);
-            sitemap.Build(agentPolicy.Disallow, agentPolicy.Allow);
+            if (policy.SitemapFound)
+            {
+                // Static sitemap found
+                site.Map = new Sitemap(site.Location, 
+                                       policy.SitemapUrl,
+                                       site.PathOnDisk, 
+                                       site.Settings.SaveSitemapFiles,
+                                       site.Settings.SaveUrls);
 
-            var crawler = new Crawler(sitemap, Program.rootPath);
+                site.Map.Build(agentPolicy.Disallow, agentPolicy.Allow);
+            }
+            else
+            {
+                // Need to build sitemap grpah by scraping site pages
+                throw new NotImplementedException();
+            }
+            
+            var crawler = new Crawler(site);
             crawler.Start();
+
+            site.HostsUrls = crawler.Hosts;
         }
     }
 }

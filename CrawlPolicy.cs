@@ -23,7 +23,7 @@ namespace WebCrawler
 
     internal class CrawlPolicy
     {
-        private Uri root = null;
+        private Site site = null;
 
         private Dictionary<string, Agent> agents = new Dictionary<string, Agent>();
 
@@ -74,17 +74,26 @@ namespace WebCrawler
                     }
                     else if (key == "sitemap:")
                     {
-                        this.SitemapUri = new Uri(value);
+                        // Site contains sitemap file with static site structure
+                        this.SitemapUrl = new Uri(value);
                     }
                 }
             }
         }
 
-        public string RobotsFile { get; private set; }
+        public bool SitemapFound { get { return this.SitemapUrl != null; }}
+        public Uri SitemapUrl { get; private set; }
+        
+        public CrawlPolicy(Site site)
+        {
+            if (site == null)
+            {
+                throw new ArgumentNullException("site");
+            }
 
-        public Uri RobotsUri { get; private set; }
-
-        public Uri SitemapUri { get; private set; }
+            this.site = site;
+            this.SitemapUrl = null;
+        }
 
         /// <summary>Gets crowler rules for the specified agent.</summary>
         /// <param name="agent">Crowler agent. Star represents settings for all agents.</param>
@@ -100,39 +109,23 @@ namespace WebCrawler
         }
 
         /// <summary>Get policies from site's robots file.</summary>
-        /// <param name="uri">Site url.</param>
-        /// <param name="path">Path to the site location on disk.</param>
-        public async Task<bool> DownloadPolicyAsync(Uri uri, string path, bool saveRobotsFile = true)
+        public async Task<bool> DownloadPolicyAsync()
         {
-            if (uri == null)
-            {
-                throw new ArgumentNullException("uri");
-            }
-
-            if (path == null)
-            {
-                throw new ArgumentNullException("path");
-            }
-
-            this.root = uri;
-            this.RobotsFile = Path.Combine(path, "robots.txt");
-            this.RobotsUri = new Uri(this.root + "robots.txt");
-
             try
             {
-                var res = await new UriDonwload().DownloadAsync(this.RobotsUri, this.RobotsFile);
+                var res = await new UriDonwload().DownloadAsync(this.site.RobotsFileUrl, this.site.RobotsFile);
                 if (!res)
                 {
                     return false;
                 }
 
-                this.Parse(this.RobotsFile);
+                this.Parse(this.site.RobotsFile);
             }
             finally
             {
-                if (!saveRobotsFile)
+                if (!this.site.Settings.SaveRobotsFile)
                 {
-                    File.Delete(this.RobotsFile);
+                    File.Delete(this.site.RobotsFile);
                 }
             }
 

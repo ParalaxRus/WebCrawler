@@ -12,20 +12,14 @@ namespace WebCrawler
     {
         private Scraper scraper = null;
 
-        private string path = null;
+        private Site site = null;
 
         private HashSet<Uri> hostUrls = new HashSet<Uri>();
 
         private BlockingCollection<string> blockingQueue = new BlockingCollection<string>();
 
-        private Regex hrefPattern = new Regex("href\\s*=\\s*(?:\"(?<1>[^\"]*)\"|(?<1>\\S+))", 
+        private Regex hrefPattern = new Regex("href\\s*=\\s*(?:\"(?<1>[^\"]*)\"|(?<1>\\S+))",
                                               RegexOptions.IgnoreCase);
-
-        /// <summary>A value indicating whether to delete html file after scraping is done or not.</summary>
-        public bool DeleteAfterScrape { get; set; }
-
-        /// <summary>A value indicating whether to save retrieved hosts to a file or not.</summary>
-        public bool SaveHosts { get; set; }
 
         /// <summary>Gets hosts urls.</summary>
         public HashSet<Uri> Hosts { get { return this.hostUrls; } }
@@ -38,7 +32,7 @@ namespace WebCrawler
                 return null;
             }
 
-            if  ((uri.Scheme != Uri.UriSchemeHttp) && (uri.Scheme != Uri.UriSchemeHttps))
+            if ((uri.Scheme != Uri.UriSchemeHttp) && (uri.Scheme != Uri.UriSchemeHttps))
             {
                 return null;
             }
@@ -70,7 +64,7 @@ namespace WebCrawler
                     {
                         Trace.TraceError(string.Format("Skipping {0}. Exception: {1}", href, exception.Message));
                     }
-                }               
+                }
             }
 
             return hosts;
@@ -93,13 +87,13 @@ namespace WebCrawler
                         }
 
                         var hostsFromLine = this.GetHosts(line);
-                        hosts.UnionWith(hostsFromLine);                    
+                        hosts.UnionWith(hostsFromLine);
                     }
                 }
             }
             finally
             {
-                if (this.DeleteAfterScrape)
+                if (this.site.Settings.DeleteHtmlsAfterScrape)
                 {
                     File.Delete(file);
                 }
@@ -119,7 +113,7 @@ namespace WebCrawler
 
         private void Save(string file)
         {
-            if (!this.SaveHosts)
+            if (!this.site.Settings.SaveHosts)
             {
                 return;
             }
@@ -133,18 +127,18 @@ namespace WebCrawler
             }
         }
 
-        public Crawler(Sitemap sitemap, string path)
+        public Crawler(Site site)
         {
-            this.path = path;
-            this.scraper = new Scraper(sitemap, path);
-            this.DeleteAfterScrape = false;
-            this.SaveHosts = true;
+            this.site = site;
+            this.scraper = new Scraper(site.Map, site.PathOnDisk);
         }
 
+        /// <summary>Gatheres all the hosts this site is connected to. 
+        /// Saves them to hostUrls and to file if neeeded.</summary>
         public void Start()
         {
             // Dowloading htmls in parallel and adding them to the blocking queue
-            var task = Task.Run(() => this.scraper.DownloadHtmls(this.blockingQueue) );
+            var task = Task.Run(() => this.scraper.DownloadHtmls(this.blockingQueue));
 
             // scraper.DownloadHtmls() completes this loop
             while (!this.blockingQueue.IsCompleted)
@@ -155,7 +149,7 @@ namespace WebCrawler
                 this.Add(nextHosts);
             }
 
-            this.Save(Path.Join(this.path, "hosts.txt"));
+            this.Save(this.site.HostsFile);
 
             // Task should be done by now because blocking queue loop is over
             task.Wait();
