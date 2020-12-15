@@ -1,14 +1,32 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Xml.Serialization;
 
 namespace WebCrawler
 {
     [Serializable]
-    internal class Site
+    public class Site
     {
-        internal class SiteSettings
+        /// <summary>Needed for serialization.</summary>
+        private Site() { }
+
+        private string GetUrlStr(Uri url)
         {
+            return url != null ? url.AbsoluteUri : null;
+        }
+
+        private Uri SetUrlStr(string value)
+        {
+            return value != null ? new Uri(value) : null;
+        }
+
+        [Serializable]
+        public class SiteSettings
+        {
+            /// <summary>Needed for serialization.</summary>
+            public SiteSettings() { }
+
             public bool SaveRobotsFile { get; set; }
             public bool SaveSitemapFiles { get; set; }
             public bool SaveUrls { get; set; }
@@ -21,33 +39,75 @@ namespace WebCrawler
             /// <summary>A value indicating whether to save retrieved hosts to a 
             /// file on disk or not.</summary>
             public bool SaveHosts { get; set; }
+
+            /// <summary>A value indicating whether to serialize site object or not.</summary>
+            public bool DoSerialize { get; set; }
         }
 
-        public Uri Location { get; set; }
+        /// <summary>Gets or sets url of the site to be crawled.</summary>
+        internal Uri Url { get; set; }
 
-        public string PathOnDisk { get; set; }
+        /// <summary>Gets or sets url of the site's robots file if any.</summary>
+        internal Uri RobotsUrl { get; set; }
 
-        public SiteSettings Settings { get; private set; }
+        /// <summary>Gets or sets sitemap object.</summary>
+        internal Sitemap Map { get; set; }
 
-        public string RobotsFile { get; set; }
+        /// <summary>Gets or sets url of the site's sitemap file if any.</summary>
+        internal Uri SitemapUrl { get; set; }
 
-        public Uri RobotsFileUrl { get; set; }
+        internal HashSet<Uri> HostsUrls { get; set; }
 
-        public Sitemap Map { get; set; }
+        #region Serializable properties
 
-        public string SitemapFile { get; set; }
+        [XmlElement("Url")]
+        public string UrlStr
+        {
+            get { return this.GetUrlStr(this.Url); }
+            set { this.Url = this.SetUrlStr(value); }
+        }
 
-        public Uri SitemapUrl { get; set; }
+        /// <summary>Gets or sets full path where to store site artifacts.</summary>
+        public string Path { get; set; }
 
+        /// <summary>Gets or sets configuration.</summary>
+        public SiteSettings Settings { get; set; }
+
+        /// <summary>Gets or sets full path on disk where to store robots file if any.</summary>
+        public string RobotsPath { get; set; }
+
+        /// <summary>Gets or sets url of the site's robots file if any.</summary>
+        [XmlElement("RobotsUrl")]
+        public string RobotsUrlStr
+        {
+            get { return this.GetUrlStr(this.RobotsUrl); }
+            set { this.RobotsUrl = this.SetUrlStr(value); }
+        }
+
+        /// <summary>Gets or sets full path on disk where to store sitemap file if any.</summary>
+        public string SitemapPath { get; set; }
+
+        /// <summary>Gets or sets url of the site's robots file if any.</summary>
+        [XmlElement("SitemapUrl")]
+        public string SitemapUrlStr
+        {
+            get { return this.GetUrlStr(this.SitemapUrl); }
+            set { this.SitemapUrl = this.SetUrlStr(value); }
+        }
+
+        /// <summary>Gets or sets full path on disk where to store hosts file.</summary>
         public string HostsFile { get; set; }
 
-        public HashSet<Uri> HostsUrls { get; set; }
+        /// <summary>Gets or sets full path on disk where to store serialized site object.</summary>
+        public string SerializedSitePath { get; set; }
 
-        public Site(Uri location, string path, SiteSettings settings)
+        #endregion
+
+        public Site(Uri siteUrl, string path, SiteSettings settings)
         {
-            if (location == null)
+            if (siteUrl == null)
             {
-                throw new ArgumentException("location");
+                throw new ArgumentException("siteUrl");
             }
 
             if (path == null)
@@ -60,13 +120,28 @@ namespace WebCrawler
                 throw new ArgumentException("settings");
             }
 
-            this.Location = location;
-            this.PathOnDisk = path;
+            this.Url = siteUrl;
+            this.Path = path;
             this.Settings = settings;
+            this.RobotsPath = System.IO.Path.Combine(this.Path, "robots.txt");
+            this.RobotsUrl = new Uri(this.Url + "robots.txt");
+            this.HostsFile = System.IO.Path.Combine(this.Path, "hosts.txt");
+            this.SerializedSitePath = System.IO.Path.Combine(this.Path, "site.xml");
+        }
 
-            this.RobotsFile = Path.Combine(this.PathOnDisk, "robots.txt");
-            this.RobotsFileUrl = new Uri(this.Location + "robots.txt");
-            this.HostsFile = Path.Combine(this.PathOnDisk, "hosts.txt");
+        public void Serialize()
+        {
+            if (!this.Settings.DoSerialize)
+            {
+                return;
+            }
+
+            var serializer = new XmlSerializer(typeof(Site));
+
+            using (var writer = new StreamWriter(this.SerializedSitePath))
+            {
+                serializer.Serialize(writer, this);
+            }
         }
     }   
 }

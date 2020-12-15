@@ -35,7 +35,8 @@ namespace WebCrawler
                 SaveSitemapFiles = false,
                 SaveUrls = true,
                 DeleteHtmlsAfterScrape = true,
-                SaveHosts = true
+                SaveHosts = true,
+                DoSerialize = true
             };
             var site = new Site(Program.rootUrl, Program.rootPath, settings);
             
@@ -51,9 +52,9 @@ namespace WebCrawler
             if (policy.SitemapFound)
             {
                 // Static sitemap found
-                site.Map = new Sitemap(site.Location, 
+                site.Map = new Sitemap(site.Url, 
                                        policy.SitemapUrl,
-                                       site.PathOnDisk, 
+                                       site.Path, 
                                        site.Settings.SaveSitemapFiles,
                                        site.Settings.SaveUrls);
 
@@ -69,6 +70,7 @@ namespace WebCrawler
             crawler.Start();
 
             site.HostsUrls = crawler.Hosts;
+            site.Serialize();
         }
     }
 }

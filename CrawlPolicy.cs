@@ -113,19 +113,19 @@ namespace WebCrawler
         {
             try
             {
-                var res = await new UriDonwload().DownloadAsync(this.site.RobotsFileUrl, this.site.RobotsFile);
+                var res = await new UriDonwload().DownloadAsync(this.site.RobotsUrl, this.site.RobotsPath);
                 if (!res)
                 {
                     return false;
                 }
 
-                this.Parse(this.site.RobotsFile);
+                this.Parse(this.site.RobotsPath);
             }
             finally
             {
                 if (!this.site.Settings.SaveRobotsFile)
                 {
-                    File.Delete(this.site.RobotsFile);
+                    File.Delete(this.site.RobotsPath);
                 }
             }
 

@@ -130,7 +130,7 @@ namespace WebCrawler
         public Crawler(Site site)
         {
             this.site = site;
-            this.scraper = new Scraper(site.Map, site.PathOnDisk);
+            this.scraper = new Scraper(site.Map, site.Path);
         }
 
         /// <summary>Gatheres all the hosts this site is connected to. 
