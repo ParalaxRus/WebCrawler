@@ -93,7 +93,7 @@ namespace WebCrawler
             }
             finally
             {
-                if (this.site.Settings.DeleteHtmlsAfterScrape)
+                if (this.site.Settings.DeleteHtmlAfterScrape && File.Exists(file))
                 {
                     File.Delete(file);
                 }
@@ -130,11 +130,11 @@ namespace WebCrawler
         public Crawler(Site site)
         {
             this.site = site;
-            this.scraper = new Scraper(site.Map, site.Path);
+            this.scraper = new Scraper(site.Map, site.HtmlDownloadPath);
         }
 
         /// <summary>Gatheres all the hosts this site is connected to. 
-        /// Saves them to hostUrls and to file if neeeded.</summary>
+        /// Saves them to hostUrls and to file if needed.</summary>
         public void Start()
         {
             // Dowloading htmls in parallel and adding them to the blocking queue
@@ -150,6 +150,12 @@ namespace WebCrawler
             }
 
             this.Save(this.site.HostsFile);
+
+            // Deleting empty paths for downloaded html files
+            if (this.site.Settings.DeleteHtmlAfterScrape)
+            {
+                Directory.Delete(this.site.HtmlDownloadPath, true);
+            }
 
             // Task should be done by now because blocking queue loop is over
             task.Wait();

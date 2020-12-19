@@ -6,7 +6,7 @@ using System.IO;
 
 namespace WebCrawler
 {
-    internal class UriDonwload
+    internal class UriDownload
     {
         private async Task<HttpWebResponse> IssueGetAsync(Uri uri)
         {
@@ -68,7 +68,7 @@ namespace WebCrawler
 
         public static bool Download(Uri uri, string file)
         {
-            var downloader = new UriDonwload();
+            var downloader = new UriDownload();
 
             var task = downloader.DownloadAsync(uri, file);
             task.Wait();

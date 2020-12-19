@@ -34,7 +34,7 @@ namespace WebCrawler
             /// <summary>A value indicating whether to delete every html page 
             /// after scraping and parsing is done. Site might have a lot of html pages and saving
             /// them locally on disk might be problematic.</summary>
-            public bool DeleteHtmlsAfterScrape { get; set; }
+            public bool DeleteHtmlAfterScrape { get; set; }
 
             /// <summary>A value indicating whether to save retrieved hosts to a 
             /// file on disk or not.</summary>
@@ -101,6 +101,9 @@ namespace WebCrawler
         /// <summary>Gets or sets full path on disk where to store serialized site object.</summary>
         public string SerializedSitePath { get; set; }
 
+        /// <summary>Gets or sets a full path on disk where to download html files during scrape.</summary>
+        public string HtmlDownloadPath {get; set; }
+
         #endregion
 
         public Site(Uri siteUrl, string path, SiteSettings settings)
@@ -127,6 +130,7 @@ namespace WebCrawler
             this.RobotsUrl = new Uri(this.Url + "robots.txt");
             this.HostsFile = System.IO.Path.Combine(this.Path, "hosts.txt");
             this.SerializedSitePath = System.IO.Path.Combine(this.Path, "site.xml");
+            this.HtmlDownloadPath = System.IO.Path.Combine(this.Path, "Htmls");
         }
 
         public void Serialize()

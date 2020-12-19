@@ -34,26 +34,26 @@ namespace WebCrawler
                 SaveRobotsFile = true,
                 SaveSitemapFiles = false,
                 SaveUrls = true,
-                DeleteHtmlsAfterScrape = true,
+                DeleteHtmlAfterScrape = true,
                 SaveHosts = true,
                 DoSerialize = true
             };
             var site = new Site(Program.rootUrl, Program.rootPath, settings);
             
-            var policy = new CrawlPolicy(site);
-            var task = policy.DownloadPolicyAsync();
+            var policyCrawler = new CrawlPolicy(site);
+            var task = policyCrawler.DownloadPolicyAsync();
             task.Wait();
             if (!task.Result)
             {
                 Trace.TraceError("Failed to obtain policy");
             }
 
-            var agentPolicy = policy.GetAgentPolicy();
-            if (policy.SitemapFound)
+            var agentPolicy = policyCrawler.GetAgentPolicy();
+            if (policyCrawler.SitemapFound)
             {
                 // Static sitemap found
                 site.Map = new Sitemap(site.Url, 
-                                       policy.SitemapUrl,
+                                       policyCrawler.SitemapUrl,
                                        site.Path, 
                                        site.Settings.SaveSitemapFiles,
                                        site.Settings.SaveUrls);
@@ -62,7 +62,7 @@ namespace WebCrawler
             }
             else
             {
-                // Need to build sitemap grpah by scraping site pages
+                // Need to dynamically obtain sitemap graph
                 throw new NotImplementedException();
             }
             

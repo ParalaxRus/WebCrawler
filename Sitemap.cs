@@ -147,7 +147,7 @@ namespace WebCrawler
 
             try
             {
-                if (!UriDonwload.Download(sitemapFile, fileOnDisk))
+                if (!UriDownload.Download(sitemapFile, fileOnDisk))
                 {
                     // Nothing could be retrieved
                     return urls;
