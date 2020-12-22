@@ -1,6 +1,8 @@
 # WebCrawler
 
-Pet project in C#
+WebCrawler pet project in C#
+
+App, Lib and Unit Tests
 
 Crawls single site for now
 
