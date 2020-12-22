@@ -8,7 +8,7 @@ using System.Diagnostics;
 
 namespace WebCrawler
 {
-    internal class Crawler
+    public class Crawler
     {
         private Scraper scraper = null;
 
@@ -93,7 +93,7 @@ namespace WebCrawler
             }
             finally
             {
-                if (this.site.Settings.DeleteHtmlAfterScrape && File.Exists(file))
+                if (this.site.Configuration.DeleteHtmlAfterScrape && File.Exists(file))
                 {
                     File.Delete(file);
                 }
@@ -113,7 +113,7 @@ namespace WebCrawler
 
         private void Save(string file)
         {
-            if (!this.site.Settings.SaveHosts)
+            if (!this.site.Configuration.SaveHosts)
             {
                 return;
             }
@@ -152,7 +152,7 @@ namespace WebCrawler
             this.Save(this.site.HostsFile);
 
             // Deleting empty paths for downloaded html files
-            if (this.site.Settings.DeleteHtmlAfterScrape)
+            if (this.site.Configuration.DeleteHtmlAfterScrape)
             {
                 Directory.Delete(this.site.HtmlDownloadPath, true);
             }

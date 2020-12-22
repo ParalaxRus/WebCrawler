@@ -29,7 +29,7 @@ namespace WebCrawler
         {
             Program.Initialize();
 
-            var settings = new Site.SiteSettings()
+            var configuration = new CrawlerConfiguration()
             {
                 SaveRobotsFile = true,
                 SaveSitemapFiles = false,
@@ -38,7 +38,8 @@ namespace WebCrawler
                 SaveHosts = true,
                 DoSerialize = true
             };
-            var site = new Site(Program.rootUrl, Program.rootPath, settings);
+            var site = new Site(Program.rootUrl, Program.rootPath, configuration);
+            site.Serialize();
             
             var policyCrawler = new CrawlPolicy(site);
             var task = policyCrawler.DownloadPolicyAsync();
@@ -55,8 +56,8 @@ namespace WebCrawler
                 site.Map = new Sitemap(site.Url, 
                                        policyCrawler.SitemapUrl,
                                        site.Path, 
-                                       site.Settings.SaveSitemapFiles,
-                                       site.Settings.SaveUrls);
+                                       site.Configuration.SaveSitemapFiles,
+                                       site.Configuration.SaveUrls);
 
                 site.Map.Build(agentPolicy.Disallow, agentPolicy.Allow);
             }

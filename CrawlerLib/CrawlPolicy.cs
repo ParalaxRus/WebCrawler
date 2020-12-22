@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace WebCrawler
 {
-    internal class Agent
+    public class Agent
     {
         public string Name { get; private set; }
 
@@ -21,7 +21,7 @@ namespace WebCrawler
         }
     }
 
-    internal class CrawlPolicy
+    public class CrawlPolicy
     {
         private Site site = null;
 
@@ -123,7 +123,7 @@ namespace WebCrawler
             }
             finally
             {
-                if (!this.site.Settings.SaveRobotsFile)
+                if (!this.site.Configuration.SaveRobotsFile)
                 {
                     File.Delete(this.site.RobotsPath);
                 }

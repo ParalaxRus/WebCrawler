@@ -10,7 +10,7 @@ using System.Reflection;
 
 namespace WebCrawler
 {
-    internal class Sitemap
+    public class Sitemap
     {
         private Uri rootUrl = null;
         private Uri sitemap = null;
@@ -169,7 +169,7 @@ namespace WebCrawler
 
         private HashSet<Uri> GetSiteUrls(Uri sitemap)
         {
-            var visisted = this.CreateVisited(this.rootUrl, this.disallow);
+            var visited = this.CreateVisited(this.rootUrl, this.disallow);
 
             var urls = new HashSet<Uri>();
 
@@ -179,12 +179,12 @@ namespace WebCrawler
             while (queue.Count != 0)
             {
                 var uri = queue.Dequeue();
-                if (visisted.Contains(uri))
+                if (visited.Contains(uri))
                 {
                     continue;
                 }
 
-                visisted.Add(uri);
+                visited.Add(uri);
 
                 var nextUrls = this.GetSitemapUrls(uri);
                 var indexUrls = nextUrls[0];
@@ -203,7 +203,7 @@ namespace WebCrawler
 
         private HashSet<Uri> GetSiteUrlsParallel(Uri sitemap)
         {
-            var visisted = this.CreateVisited(this.rootUrl, this.disallow);
+            var visited = this.CreateVisited(this.rootUrl, this.disallow);
 
             var urls = new HashSet<Uri>();
 
@@ -220,14 +220,14 @@ namespace WebCrawler
 
                 Parallel.ForEach(level, (Uri url) => 
                 {
-                    lock (visisted)
+                    lock (visited)
                     {
-                        if (visisted.Contains(url))
+                        if (visited.Contains(url))
                         {
                             return;
                         }
 
-                        visisted.Add(url);
+                        visited.Add(url);
                     }
                     
                     var nextUrls = this.GetSitemapUrls(url);
