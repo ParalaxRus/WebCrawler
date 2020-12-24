@@ -13,6 +13,7 @@ public class SiteDataBase
     private const string idName = "Id";
     private const string parentIdName = "ParentId";
     private const string childIdName = "ChildId";
+    private const string hostName = "Host";
 
     private DataSet set = new DataSet("SitesDataSet");
 
@@ -28,7 +29,7 @@ public class SiteDataBase
                 Unique = true,
                 AutoIncrement = true
             },
-            new DataColumn("Host", typeof(string))
+            new DataColumn(SiteDataBase.hostName, typeof(string))
             {
                 Unique = true,
                 AutoIncrement = false
@@ -77,7 +78,7 @@ public class SiteDataBase
         var table = this.set.Tables[SiteDataBase.sitesName];
 
         var row = table.NewRow();
-        row["Host"] = host;
+        row[SiteDataBase.hostName] = host;
         row["Robots"] = isRobotsFile;
         row["Sitemap"] = isSitemap;
 
@@ -101,12 +102,12 @@ public class SiteDataBase
         table.Rows.Add(row);
     }
 
-    private DataRow GetHost(string host)
+    private DataRow GetHostByName(string host)
     {
         var table = this.set.Tables[SiteDataBase.sitesName];
 
-        string hostLookup = string.Format("Host='{0}'", host);
-        DataRow[] rows = table.Select(hostLookup);
+        string hostLookup = string.Format("{0}='{1}'", hostName, host);
+        var rows = table.Select(hostLookup);
 
         if (rows.Length == 0)
         {
@@ -118,7 +119,28 @@ public class SiteDataBase
         }
         else
         {
-            throw new ArgumentException(string.Format("Duplicate host '{}' found", host));
+            throw new ArgumentException(string.Format("Duplicate host {0} found", host));
+        }
+    }
+
+    private DataRow GetHostById(int id)
+    {
+        var table = this.set.Tables[SiteDataBase.sitesName];
+
+        string hostLookup = string.Format("{0}={1}", SiteDataBase.idName, id);
+        var rows = table.Select(hostLookup);
+
+        if (rows.Length == 0)
+        {
+            return null;
+        }
+        else if (rows.Length == 1)
+        {
+            return rows[0];
+        }
+        else
+        {
+            throw new ArgumentException(string.Format("Duplicate ID {0} found", id));
         }
     }
 
@@ -165,7 +187,7 @@ public class SiteDataBase
 
     public void AddHost(string host, bool isRobotsFile, bool isSitemap)
     {
-        var hostRow = this.GetHost(host);
+        var hostRow = this.GetHostByName(host);
         if (hostRow == null)
         {
             this.InsertHost(host, isRobotsFile, isSitemap);
@@ -178,13 +200,13 @@ public class SiteDataBase
 
     public void AddConnection(string parent, string child)
     {
-        var parentRow = this.GetHost(parent);
+        var parentRow = this.GetHostByName(parent);
         if (parentRow == null)
         {
             throw new ArgumentException(string.Format("Parent {0} does not exist", parent));
         }
 
-        var childRow = this.GetHost(child);
+        var childRow = this.GetHostByName(child);
         if (childRow == null)
         {
             throw new ArgumentException(string.Format("Child {0} does not exist", child));
@@ -203,9 +225,41 @@ public class SiteDataBase
         }
     }
 
+    public List<string> GetChildren(string parent)
+    {
+        var parentRow = this.GetHostByName(parent);
+        if (parentRow == null)
+        {
+            throw new ArgumentException(string.Format("Parent {0} does not exist", parent));
+        }
+
+        int parentId = (int)parentRow[SiteDataBase.idName];
+        string childrenLookup = string.Format("{0}={1}", SiteDataBase.parentIdName, parentId);
+
+        var table = this.set.Tables[SiteDataBase.connectionsName];
+        var rows = table.Select(childrenLookup);
+
+        var children = new List<string>(rows.Length);
+
+        foreach (var row in rows)
+        {
+            int childId = (int)row[SiteDataBase.childIdName];
+
+            var childRow = this.GetHostById(childId);
+            if (childRow == null)
+            {
+                throw new ApplicationException(string.Format("Failed to find child row by id={0}", childId));
+            }
+
+            children.Add((string)childRow[SiteDataBase.hostName]);
+        }
+
+        return children;
+    }
+
     public object[] GetHostRecord(string host)
     {
-        var row = this.GetHost(host);
+        var row = this.GetHostByName(host);
         return row != null ? row.ItemArray : null;
     }
 

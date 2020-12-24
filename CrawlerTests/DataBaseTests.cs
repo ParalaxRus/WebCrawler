@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -51,17 +52,63 @@ namespace WebCrawler
             Assert.IsTrue(values.SequenceEqual(expectedValues));
         }
 
-        /*public void AddingParentHostShouldAddIt()
+        [TestMethod]
+        public void AddingConnectionWithNonExistingParentShouldThrowArgumentException()
         {
+            var db = new SiteDataBase();
+
+            db.AddHost("host1", false, false);
+            
             Action action = () =>
             {
-                var db = new SiteDataBase();
-
-                db.AddParent("noparent", true, true);
+                db.AddConnection("invalid", "host1");
             };
             
 
             Assert.ThrowsException<ArgumentException>(action);
-        }*/
+        }
+
+        [TestMethod]
+        public void AddingConnectionWithNonExistingChildShouldThrowArgumentException()
+        {
+            var db = new SiteDataBase();
+
+            db.AddHost("host1", false, false);
+            
+            Action action = () =>
+            {
+                db.AddConnection("host1", "invalid");
+            };
+            
+            Assert.ThrowsException<ArgumentException>(action);
+        }
+
+        [TestMethod]
+        public void GetNonExistingParentShouldThrowArgumentException()
+        {
+            var db = new SiteDataBase();
+
+            Action action = () =>
+            {
+                db.GetChildren("invalid");
+            };
+            
+            Assert.ThrowsException<ArgumentException>(action);
+        }
+
+        [TestMethod]
+        public void AddingValidConnectionShouldAddIt()
+        {
+            var db = new SiteDataBase();
+
+            db.AddHost("parent", false, false);
+            db.AddHost("child", false, false);
+
+            db.AddConnection("parent", "child");
+            
+            var children = db.GetChildren("parent");
+            Assert.AreEqual(children.Count, 1);
+            Assert.AreEqual(children[0], "child");
+        }
     }
 }
