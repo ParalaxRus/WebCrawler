@@ -57,7 +57,8 @@ public class SiteDataBase
             new DataColumn(SiteDataBase.idName, typeof(Int32))
             {
                 ReadOnly = true,
-                Unique = true
+                Unique = true,
+                AutoIncrement = true
             },
             new DataColumn(SiteDataBase.parentIdName, typeof(Int32)),
             new DataColumn(SiteDataBase.childIdName, typeof(Int32)),
@@ -148,7 +149,7 @@ public class SiteDataBase
     {
         var table = this.set.Tables[SiteDataBase.connectionsName];
 
-        string lookUp = string.Format("{0}={1} {2}={3}", SiteDataBase.parentIdName, parentId, SiteDataBase.childIdName, childId);
+        string lookUp = string.Format("{0}={1} and {2}={3}", SiteDataBase.parentIdName, parentId, SiteDataBase.childIdName, childId);
         var rows = table.Select(lookUp);
 
         if (rows.Length == 0)
@@ -221,6 +222,9 @@ public class SiteDataBase
         }
         else
         {
+            // This should not change row because parentId and childId are the same
+            // However this might be handy in future in case if new columns/properties added 
+            // to the connections table
             SiteDataBase.UpdateConnection(connectionRow, parentId, childId);
         }
     }

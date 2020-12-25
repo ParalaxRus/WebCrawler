@@ -87,12 +87,19 @@ namespace WebCrawler
             }
 
             this.Url = url;
-            this.Path = path;
+            
+            this.Path = System.IO.Path.Combine(path, this.Url.Host);
+            if (Directory.Exists(this.Path))
+            {
+                Directory.Delete(this.Path);
+            }
+            Directory.CreateDirectory(this.Path);
+
             this.Configuration = configuration;
             this.RobotsPath = System.IO.Path.Combine(this.Path, "robots.txt");
             this.RobotsUrl = new Uri(this.Url + "robots.txt");
             this.HostsFile = System.IO.Path.Combine(this.Path, "hosts.txt");
-            this.SerializedSitePath = System.IO.Path.Combine(this.Path, "site.json");
+            this.SerializedSitePath = System.IO.Path.Combine(this.Path, url.Host + ".site.json");
             this.HtmlDownloadPath = System.IO.Path.Combine(this.Path, "Html");
         }
 

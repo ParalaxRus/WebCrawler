@@ -10,9 +10,15 @@ namespace WebCrawler
 {
     public class Crawler
     {
-        private Scraper scraper = null;
+        /// <summary>Crawler settings.</summary>
+        private CrawlerConfiguration configuration = null;
 
-        private Site site = null;
+        /// <summary>Seed hosts.</summary>
+        private Uri[] seeds = null;
+
+        /// <summary>Full path on disk where to save crawl products.</summary>
+        private string outputPath = null;
+
 
         private HashSet<Uri> hostUrls = new HashSet<Uri>();
 
@@ -21,8 +27,7 @@ namespace WebCrawler
         private Regex hrefPattern = new Regex("href\\s*=\\s*(?:\"(?<1>[^\"]*)\"|(?<1>\\S+))",
                                               RegexOptions.IgnoreCase);
 
-        /// <summary>Gets hosts urls.</summary>
-        public HashSet<Uri> Hosts { get { return this.hostUrls; } }
+        private SiteDataBase siteDataBase = new SiteDataBase();
 
         private Uri GetHostUri(string href)
         {
@@ -70,7 +75,7 @@ namespace WebCrawler
             return hosts;
         }
 
-        private HashSet<Uri> ParseHosts(string file)
+        private HashSet<Uri> ParseHosts(string file, bool deleteHtml)
         {
             var hosts = new HashSet<Uri>();
 
@@ -93,7 +98,7 @@ namespace WebCrawler
             }
             finally
             {
-                if (this.site.Configuration.DeleteHtmlAfterScrape && File.Exists(file))
+                if (deleteHtml && File.Exists(file))
                 {
                     File.Delete(file);
                 }
@@ -102,18 +107,9 @@ namespace WebCrawler
             return hosts;
         }
 
-        /// <summary>Adding url hosts while avoiding duplicates.</summary>
-        private void Add(HashSet<Uri> hosts)
+        private void Save(string file, bool saveHosts)
         {
-            lock (this.hostUrls)
-            {
-                this.hostUrls.UnionWith(hosts);
-            }
-        }
-
-        private void Save(string file)
-        {
-            if (!this.site.Configuration.SaveHosts)
+            if (!saveHosts)
             {
                 return;
             }
@@ -127,34 +123,130 @@ namespace WebCrawler
             }
         }
 
-        public Crawler(Site site)
+        private void UpdateHosts(Uri parent, HashSet<Uri> children)
         {
-            this.site = site;
-            this.scraper = new Scraper(site.Map, site.HtmlDownloadPath);
+            // Children of the current parent
+            this.hostUrls.UnionWith(children);
+            
+            // Updating database info
+            foreach(var child in children)
+            {
+                this.siteDataBase.AddHost(child.Host, false, false);
+                this.siteDataBase.AddConnection(parent.Host, child.Host);
+            }
         }
 
-        /// <summary>Gatheres all the hosts this site is connected to. 
-        /// Saves them to hostUrls and to file if needed.</summary>
-        public void Start()
+        /// <summary>Gets hosts urls.</summary>
+        public HashSet<Uri> Hosts { get { return this.hostUrls; } }
+
+        public Crawler(CrawlerConfiguration configuration, Uri[] seeds, string outputPath)
         {
-            // Dowloading htmls in parallel and adding them to the blocking queue
-            var task = Task.Run(() => this.scraper.DownloadHtmls(this.blockingQueue));
+            if (configuration == null)
+            {
+                throw new ArgumentException("configuration");
+            }
+
+            if ((seeds == null) || (seeds.Length == 0))
+            {
+                throw new ArgumentException("seeds");
+            }
+
+            if (!Directory.Exists(outputPath))
+            {
+                throw new ArgumentException("outputPath");
+            }
+
+            this.configuration = configuration;
+            this.seeds = seeds;
+            this.outputPath = outputPath;
+        }
+
+        public void Crawl()
+        {
+            foreach (var seed in this.seeds)
+            {
+                var site = new Site(seed, this.outputPath, this.configuration);
+
+                try
+                {
+                    Trace.TraceInformation("Crawling: " + seed.Host);
+
+                    // Determining site policy if any
+                    var sitePolicy = new SitePolicy(site.RobotsUrl, site.RobotsPath);
+                    var task = sitePolicy.DetectAsync();
+                    task.Wait();
+                    if (!task.Result)
+                    {
+                        Trace.TraceError("Failed to obtain policy");
+                    }
+                    var policy = sitePolicy.GetPolicy(); // Empty policy if none detected
+
+                    if (policy.IsSitemap)
+                    {
+                        // Static sitemap found
+                        site.Map = new Sitemap(site.Url, 
+                                               policy.Sitemap,
+                                               site.Path, 
+                                               site.Configuration.SaveSitemapFiles,
+                                               site.Configuration.SaveUrls);
+
+                        site.Map.Build(policy.Disallow, policy.Allow);
+                    }
+                    else
+                    {
+                        // Need to dynamically obtain sitemap graph
+                        throw new NotImplementedException();
+                    }
+                
+                    // Might exist as a child of another host already. However does not have
+                    // policy information yet because its crawling has not began
+                    // so need to update table anyways
+                    this.siteDataBase.AddHost(seed.Host, policy.IsRobots, policy.IsSitemap);
+
+                    this.Start(seed, site);
+
+                    Trace.TraceInformation(string.Format("Crawling {0} completed successfully", seed.Host));
+                }
+                catch (Exception exception)
+                {
+                    Trace.TraceError(string.Format("Failed to crawl {0}. {1}", seed.Host, exception.Message));
+                }
+                finally
+                {
+                    if (!this.configuration.SaveRobotsFile)
+                    {
+                        File.Delete(site.RobotsPath);
+                    }
+
+                    this.Save(site.HostsFile, site.Configuration.SaveHosts);
+
+                    // Deleting empty paths for downloaded html files
+                    if (site.Configuration.DeleteHtmlAfterScrape)
+                    {
+                        Directory.Delete(site.HtmlDownloadPath, true);
+                    }
+
+                    site.Serialize();
+                }   
+            }
+        }
+
+        /// <summary>Scrapes seed info and builds graph of the hosts with which 
+        /// current seed url is connected.</summary>
+        private void Start(Uri host, Site site)
+        {
+            // Dowloading html pages in parallel and adding them to the blocking queue
+            var scraper = new Scraper(site.Map, site.HtmlDownloadPath);
+            var task = Task.Run(() => scraper.DownloadHtmls(this.blockingQueue));
 
             // scraper.DownloadHtmls() completes this loop
             while (!this.blockingQueue.IsCompleted)
             {
                 var htmlFile = this.blockingQueue.Take();
-                var nextHosts = this.ParseHosts(htmlFile);
 
-                this.Add(nextHosts);
-            }
+                var nextHosts = this.ParseHosts(htmlFile, site.Configuration.DeleteHtmlAfterScrape);
 
-            this.Save(this.site.HostsFile);
-
-            // Deleting empty paths for downloaded html files
-            if (this.site.Configuration.DeleteHtmlAfterScrape)
-            {
-                Directory.Delete(this.site.HtmlDownloadPath, true);
+                this.UpdateHosts(site.Url, nextHosts);
             }
 
             // Task should be done by now because blocking queue loop is over

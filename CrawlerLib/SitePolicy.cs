@@ -9,6 +9,15 @@ namespace WebCrawler
     {
         public string Name { get; private set; }
 
+        /// <summary>A value indicating whether site contains robots file or not.</summary>
+        public bool IsRobots { get; set; }
+
+        /// <summary>Checks whether site contains sitemap or not.</summary>
+        public bool IsSitemap { get { return this.Sitemap != null; }}
+
+        /// <summary>Gets or sets sitemap url if any.</summary>
+        public Uri Sitemap { get; set; }
+
         public HashSet<string> Allow { get; private set; }
 
         public HashSet<string> Disallow { get; private set; }
@@ -16,14 +25,22 @@ namespace WebCrawler
         public Agent(string name)
         {
             this.Name = name;
+            this.Sitemap = null;
             this.Allow = new HashSet<string>();
             this.Disallow = new HashSet<string>();
         }
     }
 
-    public class CrawlPolicy
+    /// <summary>Site policy detector class.</summary>
+    public class SitePolicy
     {
-        private Site site = null;
+        private bool robotsDetected = false;
+
+        private Uri robotsUrl = null;
+
+        private string robotsPath = null;
+
+        private Uri sitemap = null;
 
         private Dictionary<string, Agent> agents = new Dictionary<string, Agent>();
 
@@ -75,29 +92,31 @@ namespace WebCrawler
                     else if (key == "sitemap:")
                     {
                         // Site contains sitemap file with static site structure
-                        this.SitemapUrl = new Uri(value);
+                        this.sitemap = new Uri(value);
                     }
                 }
             }
         }
 
-        public bool SitemapFound { get { return this.SitemapUrl != null; }}
-        public Uri SitemapUrl { get; private set; }
-        
-        public CrawlPolicy(Site site)
+        public SitePolicy(Uri robotsUrl, string robotsPath)
         {
-            if (site == null)
+            if (robotsUrl == null)
             {
-                throw new ArgumentNullException("site");
+                throw new ArgumentNullException("robotsUrl");
             }
 
-            this.site = site;
-            this.SitemapUrl = null;
+            if (robotsPath == null)
+            {
+                throw new ArgumentNullException("robotsPath");
+            }
+
+            this.robotsUrl = robotsUrl;
+            this.robotsPath = robotsPath;
         }
 
-        /// <summary>Gets crowler rules for the specified agent.</summary>
-        /// <param name="agent">Crowler agent. Star represents settings for all agents.</param>
-        public Agent GetAgentPolicy(string agent = "*")
+        /// <summary>Gets crawler rules for the specified agent.</summary>
+        /// <param name="agent">Crawler agent. Star represents settings for all agents.</param>
+        public Agent GetPolicy(string agent = "*")
         {
             if (!this.agents.ContainsKey(agent))
             {
@@ -105,29 +124,27 @@ namespace WebCrawler
                 return new Agent("");
             }
 
-            return this.agents[agent];
+            var current = this.agents[agent];
+
+            // Following settings are applied to all agents
+            // Maybe refactor because they don't really belong to agent policy
+            current.Sitemap = this.sitemap;
+            current.IsRobots = this.robotsDetected;
+
+            return current;
         }
 
-        /// <summary>Get policies from site's robots file.</summary>
-        public async Task<bool> DownloadPolicyAsync()
+        /// <summary>Get policies from site's robots file if any.</summary>
+        public async Task<bool> DetectAsync()
         {
-            try
+            var res = await new UriDownload().DownloadAsync(this.robotsUrl, this.robotsPath);
+            if (!res)
             {
-                var res = await new UriDownload().DownloadAsync(this.site.RobotsUrl, this.site.RobotsPath);
-                if (!res)
-                {
-                    return false;
-                }
+                return false;
+            }
 
-                this.Parse(this.site.RobotsPath);
-            }
-            finally
-            {
-                if (!this.site.Configuration.SaveRobotsFile)
-                {
-                    File.Delete(this.site.RobotsPath);
-                }
-            }
+            this.robotsDetected = true;
+            this.Parse(this.robotsPath);
 
             return true;
         }

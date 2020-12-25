@@ -6,28 +6,23 @@ namespace WebCrawler
 {
     class Program
     {
-        private static readonly Uri rootUrl = new Uri("https://www.google.com/");
+        /// <summary>Full path to crawl product files.</summary>
+        private static readonly string outputPath = Path.Join(Directory.GetCurrentDirectory(), "output");
 
-        private static readonly string rootPath = Path.Join(Directory.GetCurrentDirectory(), Program.rootUrl.Host);
+        /// <summary>Full path to the log file.</summary>
+        private static readonly string logPath = Path.Join(Program.outputPath, "crawler.log");
 
-        private static readonly string logPath = Path.Join(Program.rootPath, "crawler.log");
-
-        private static void Initialize()
-        {
-            if (Directory.Exists(Program.rootPath))
-            {
-                Directory.Delete(Program.rootPath, true);
-            }
-            
-            Directory.CreateDirectory(Program.rootPath);
-
-            Trace.Listeners.Add(new TextWriterTraceListener(Program.logPath, "CrawlerListener"));
-            Trace.AutoFlush = true;
-        }
-        
         public static void Main(string[] args)
         {
-            Program.Initialize();
+            Trace.Listeners.Add(new TextWriterTraceListener(Program.logPath, "CrawlerListener"));
+            Trace.AutoFlush = true;
+
+            // Recreating for now
+            if (Directory.Exists(Program.outputPath))
+            {
+                Directory.Delete(Program.outputPath, true);
+            }
+            Directory.CreateDirectory(Program.outputPath);
 
             var configuration = new CrawlerConfiguration()
             {
@@ -38,40 +33,16 @@ namespace WebCrawler
                 SaveHosts = true,
                 DoSerialize = true
             };
-            var site = new Site(Program.rootUrl, Program.rootPath, configuration);
-            site.Serialize();
-            
-            var policyCrawler = new CrawlPolicy(site);
-            var task = policyCrawler.DownloadPolicyAsync();
-            task.Wait();
-            if (!task.Result)
-            {
-                Trace.TraceError("Failed to obtain policy");
-            }
 
-            var agentPolicy = policyCrawler.GetAgentPolicy();
-            if (policyCrawler.SitemapFound)
+            var seedUrls = new Uri[]
             {
-                // Static sitemap found
-                site.Map = new Sitemap(site.Url, 
-                                       policyCrawler.SitemapUrl,
-                                       site.Path, 
-                                       site.Configuration.SaveSitemapFiles,
-                                       site.Configuration.SaveUrls);
+                new Uri("https://www.google.com/")
+            };
+            var crawler = new Crawler(configuration, seedUrls, Program.outputPath);
 
-                site.Map.Build(agentPolicy.Disallow, agentPolicy.Allow);
-            }
-            else
-            {
-                // Need to dynamically obtain sitemap graph
-                throw new NotImplementedException();
-            }
-            
-            var crawler = new Crawler(site);
-            crawler.Start();
+            crawler.Crawl();
 
-            site.HostsUrls = crawler.Hosts;
-            site.Serialize();
+            Console.WriteLine("Done");
         }
     }
 }
