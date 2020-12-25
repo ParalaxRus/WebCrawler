@@ -121,3 +121,6 @@ ServiceFabricBackup/
 
 # Local History for Visual Studio
 .localhistory/
+
+# WebCrawler output folder for saving crawl products
+output/

@@ -1,5 +1,6 @@
 using System;
 using System.Data;
+using System.IO;
 using System.Collections.Generic;
 
 namespace WebCrawler
@@ -272,6 +273,28 @@ public class SiteDataBase
         var sites = this.set.Tables[SiteDataBase.sitesName];
 
         return sites.Rows.Count;
+    }
+
+    public void Serialize(string file)
+    {
+        if (file == null)
+        {
+            throw new ArgumentException("file");
+        }
+
+        File.Delete(file);
+
+        this.set.WriteXml(file, XmlWriteMode.WriteSchema);
+    }
+
+    public void Deserialize(string file)
+    {
+        if (!File.Exists(file))
+        {
+            throw new ArgumentException("file");
+        }
+
+        this.set.ReadXml(file, XmlReadMode.ReadSchema);
     }
 }
 

@@ -227,6 +227,11 @@ namespace WebCrawler
                     }
 
                     site.Serialize();
+
+                    if (site.Configuration.SerializeSiteDb)
+                    {
+                        this.siteDataBase.Serialize(site.SiteDbFile);
+                    }
                 }   
             }
         }

@@ -27,7 +27,10 @@ namespace WebCrawler
         public bool SaveHosts { get; set; }
 
         /// <summary>A value indicating whether to serialize site object or not.</summary>
-        public bool DoSerialize { get; set; }
+        public bool SerializeSite { get; set; }
+
+        /// <summary>A value indicating whether to serialize site dataset object or not.</summary>
+        public bool SerializeSiteDb { get; set; }
     }
 
     public class Site
@@ -69,6 +72,9 @@ namespace WebCrawler
         /// <summary>Gets or sets a full path on disk where to download html files during scrape.</summary>
         public string HtmlDownloadPath {get; set; }
 
+        /// <summary>Gets or sets site database file.</summary>
+        public string SiteDbFile { get; set; }
+
         public Site(Uri url, string path, CrawlerConfiguration configuration)
         {
             if (url == null)
@@ -87,7 +93,7 @@ namespace WebCrawler
             }
 
             this.Url = url;
-            
+
             this.Path = System.IO.Path.Combine(path, this.Url.Host);
             if (Directory.Exists(this.Path))
             {
@@ -101,11 +107,12 @@ namespace WebCrawler
             this.HostsFile = System.IO.Path.Combine(this.Path, "hosts.txt");
             this.SerializedSitePath = System.IO.Path.Combine(this.Path, url.Host + ".site.json");
             this.HtmlDownloadPath = System.IO.Path.Combine(this.Path, "Html");
+            this.SiteDbFile = System.IO.Path.Combine(this.Path, url.Host + ".dataset.xml");
         }
 
         public void Serialize()
         {
-            if (!this.Configuration.DoSerialize)
+            if (!this.Configuration.SerializeSite)
             {
                 return;
             }

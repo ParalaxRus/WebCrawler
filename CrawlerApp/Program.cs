@@ -31,7 +31,8 @@ namespace WebCrawler
                 SaveUrls = true,
                 DeleteHtmlAfterScrape = true,
                 SaveHosts = true,
-                DoSerialize = true
+                SerializeSite = true,
+                SerializeSiteDb = true
             };
 
             var seedUrls = new Uri[]
