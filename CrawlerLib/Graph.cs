@@ -80,7 +80,6 @@ public class Graph
             this.dataBase.AddHost(parent.Host, false, false);
         }
         
-
         return true;
     }
 
@@ -96,6 +95,7 @@ public class Graph
 
         if (this.dataBase != null)
         {
+            this.dataBase.AddHost(child.Host, false, false);
             this.dataBase.AddConnection(parent.Host, child.Host);
         }
 
