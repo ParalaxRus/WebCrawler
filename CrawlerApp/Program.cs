@@ -30,9 +30,8 @@ namespace WebCrawler
                 SaveSitemapFiles = false,
                 SaveUrls = true,
                 DeleteHtmlAfterScrape = true,
-                SaveHosts = true,
                 SerializeSite = true,
-                SerializeSiteDb = true
+                SerializeGraph = true
             };
 
             var seedUrls = new Uri[]

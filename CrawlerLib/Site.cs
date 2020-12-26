@@ -22,15 +22,11 @@ namespace WebCrawler
         /// them locally on disk might be problematic.</summary>
         public bool DeleteHtmlAfterScrape { get; set; }
 
-        /// <summary>A value indicating whether to save retrieved hosts to a 
-        /// file on disk or not.</summary>
-        public bool SaveHosts { get; set; }
-
         /// <summary>A value indicating whether to serialize site object or not.</summary>
         public bool SerializeSite { get; set; }
 
-        /// <summary>A value indicating whether to serialize site dataset object or not.</summary>
-        public bool SerializeSiteDb { get; set; }
+        /// <summary>A value indicating whether to serialize graph object or not.</summary>
+        public bool SerializeGraph { get; set; }
     }
 
     public class Site
@@ -64,7 +60,7 @@ namespace WebCrawler
         public HashSet<Uri> HostsUrls { get; set; }
 
         /// <summary>Gets or sets full path on disk where to store hosts file.</summary>
-        public string HostsFile { get; set; }
+        public string GraphFile { get; set; }
 
         /// <summary>Gets or sets full path on disk where to store serialized site object.</summary>
         public string SerializedSitePath { get; set; }
@@ -104,7 +100,7 @@ namespace WebCrawler
             this.Configuration = configuration;
             this.RobotsPath = System.IO.Path.Combine(this.Path, "robots.txt");
             this.RobotsUrl = new Uri(this.Url + "robots.txt");
-            this.HostsFile = System.IO.Path.Combine(this.Path, "hosts.txt");
+            this.GraphFile = System.IO.Path.Combine(this.Path, "graph.txt");
             this.SerializedSitePath = System.IO.Path.Combine(this.Path, url.Host + ".site.json");
             this.HtmlDownloadPath = System.IO.Path.Combine(this.Path, "Html");
             this.SiteDbFile = System.IO.Path.Combine(this.Path, url.Host + ".dataset.xml");

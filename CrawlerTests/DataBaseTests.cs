@@ -11,7 +11,7 @@ namespace WebCrawler
         [TestMethod]
         public void ThereShouldBeZeroHostsByDefault()
         {
-            var db = new SiteDataBase();
+            var db = new DataBase();
 
             Assert.AreEqual(db.GetHostCount(), 0);
         }
@@ -19,7 +19,7 @@ namespace WebCrawler
         [TestMethod]
         public void GetNonExistingHostShouldReturnNull()
         {
-            var db = new SiteDataBase();
+            var db = new DataBase();
 
             Assert.IsNull(db.GetHostRecord("invalid"));            
         }
@@ -27,7 +27,7 @@ namespace WebCrawler
         [TestMethod]
         public void AddingNewHostShouldAddIt()
         {
-            var db = new SiteDataBase();
+            var db = new DataBase();
 
             var values = new object[] { 0, "host1", true, true };
             db.AddHost((string)values[1], (bool)values[2], (bool)values[3]);
@@ -40,7 +40,7 @@ namespace WebCrawler
         [TestMethod]
         public void AddingExistingHostShouldUpdateIt()
         {
-            var db = new SiteDataBase();
+            var db = new DataBase();
 
             db.AddHost("host1", false, false);
 
@@ -55,7 +55,7 @@ namespace WebCrawler
         [TestMethod]
         public void AddingConnectionWithNonExistingParentShouldThrowArgumentException()
         {
-            var db = new SiteDataBase();
+            var db = new DataBase();
 
             db.AddHost("host1", false, false);
             
@@ -71,7 +71,7 @@ namespace WebCrawler
         [TestMethod]
         public void AddingConnectionWithNonExistingChildShouldThrowArgumentException()
         {
-            var db = new SiteDataBase();
+            var db = new DataBase();
 
             db.AddHost("host1", false, false);
             
@@ -86,7 +86,7 @@ namespace WebCrawler
         [TestMethod]
         public void GetNonExistingParentShouldThrowArgumentException()
         {
-            var db = new SiteDataBase();
+            var db = new DataBase();
 
             Action action = () =>
             {
@@ -99,7 +99,7 @@ namespace WebCrawler
         [TestMethod]
         public void AddingValidConnectionShouldAddIt()
         {
-            var db = new SiteDataBase();
+            var db = new DataBase();
 
             db.AddHost("parent", false, false);
             db.AddHost("child", false, false);
@@ -114,7 +114,7 @@ namespace WebCrawler
         [TestMethod]
         public void AddingExistingConnectionShouldUpdateIt()
         {
-            var db = new SiteDataBase();
+            var db = new DataBase();
 
             db.AddHost("parent", false, false);
             db.AddHost("child1", false, false);
@@ -131,7 +131,7 @@ namespace WebCrawler
         [TestMethod]
         public void GetChildrenForParentWithMultipleChildrenShouldReturnAllChildren()
         {
-            var db = new SiteDataBase();
+            var db = new DataBase();
 
             var children = new string[3]
             {

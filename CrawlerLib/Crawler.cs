@@ -19,15 +19,13 @@ namespace WebCrawler
         /// <summary>Full path on disk where to save crawl products.</summary>
         private string outputPath = null;
 
-
-        private HashSet<Uri> hostUrls = new HashSet<Uri>();
+        /// <summary>Crawler graph discovered so far.</summary>
+        private Graph graph = new Graph(true);
 
         private BlockingCollection<string> blockingQueue = new BlockingCollection<string>();
 
         private Regex hrefPattern = new Regex("href\\s*=\\s*(?:\"(?<1>[^\"]*)\"|(?<1>\\S+))",
                                               RegexOptions.IgnoreCase);
-
-        private SiteDataBase siteDataBase = new SiteDataBase();
 
         private Uri GetHostUri(string href)
         {
@@ -107,37 +105,16 @@ namespace WebCrawler
             return hosts;
         }
 
-        private void Save(string file, bool saveHosts)
+        private void UpdateGraph(Uri parent, HashSet<Uri> children)
         {
-            if (!saveHosts)
-            {
-                return;
-            }
+            this.graph.AddParent(parent);
 
-            using (var writer = new StreamWriter(file))
-            {
-                foreach (var host in this.Hosts)
-                {
-                    writer.WriteLine(host);
-                }
-            }
-        }
-
-        private void UpdateHosts(Uri parent, HashSet<Uri> children)
-        {
-            // Children of the current parent
-            this.hostUrls.UnionWith(children);
-            
             // Updating database info
             foreach(var child in children)
             {
-                this.siteDataBase.AddHost(child.Host, false, false);
-                this.siteDataBase.AddConnection(parent.Host, child.Host);
+                this.graph.AddChild(parent, child);
             }
         }
-
-        /// <summary>Gets hosts urls.</summary>
-        public HashSet<Uri> Hosts { get { return this.hostUrls; } }
 
         public Crawler(CrawlerConfiguration configuration, Uri[] seeds, string outputPath)
         {
@@ -201,7 +178,11 @@ namespace WebCrawler
                     // Might exist as a child of another host already. However does not have
                     // policy information yet because its crawling has not began
                     // so need to update table anyways
-                    this.siteDataBase.AddHost(seed.Host, policy.IsRobots, policy.IsSitemap);
+                    // Refactor does not look good ...
+                    if (this.graph.IsPersistent)
+                    {
+                        this.graph.CrawlDataBase.AddHost(seed.Host, policy.IsRobots, policy.IsSitemap);
+                    }
 
                     this.Start(seed, site);
 
@@ -218,7 +199,10 @@ namespace WebCrawler
                         File.Delete(site.RobotsPath);
                     }
 
-                    this.Save(site.HostsFile, site.Configuration.SaveHosts);
+                    if (site.Configuration.SerializeGraph)
+                    {
+                        this.graph.Serialize(site.GraphFile, site.SiteDbFile);
+                    }
 
                     // Deleting empty paths for downloaded html files
                     if (site.Configuration.DeleteHtmlAfterScrape)
@@ -227,13 +211,14 @@ namespace WebCrawler
                     }
 
                     site.Serialize();
-
-                    if (site.Configuration.SerializeSiteDb)
-                    {
-                        this.siteDataBase.Serialize(site.SiteDbFile);
-                    }
                 }   
             }
+        }
+
+        /// <summary>Gets collection of sites connected to the specified host.</summary>
+        public Uri[] GetConnections(Uri host)
+        {
+            return this.graph.GetChildren(host);
         }
 
         /// <summary>Scrapes seed info and builds graph of the hosts with which 
@@ -251,7 +236,7 @@ namespace WebCrawler
 
                 var nextHosts = this.ParseHosts(htmlFile, site.Configuration.DeleteHtmlAfterScrape);
 
-                this.UpdateHosts(site.Url, nextHosts);
+                this.UpdateGraph(site.Url, nextHosts);
             }
 
             // Task should be done by now because blocking queue loop is over
