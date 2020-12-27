@@ -116,6 +116,31 @@ namespace WebCrawler
             }
         }
 
+        /// <summary>Scrapes seed info and builds graph of the hosts with which 
+        /// current seed url is connected.</summary>
+        private void Start(Uri host, Site site)
+        {
+            // Dowloading html pages in parallel and adding them to the blocking queue
+            var scraper = new Scraper(site.Map, site.HtmlDownloadPath);
+            var task = Task.Run(() => scraper.DownloadHtmls(this.blockingQueue));
+
+            // scraper.DownloadHtmls() completes this loop
+            while (!this.blockingQueue.IsCompleted)
+            {
+                var htmlFile = this.blockingQueue.Take();
+
+                var nextHosts = this.ParseHosts(htmlFile, site.Configuration.DeleteHtmlAfterScrape);
+
+                this.UpdateGraph(site.Url, nextHosts);
+            }
+
+            // Task should be done by now because blocking queue loop is over
+            task.Wait();
+        }
+
+        /// <summary>Gets crawler data base object.</summary>
+        public DataBase CrawlerDataBase { get {return this.graph.CrawlDataBase; } }
+
         public Crawler(CrawlerConfiguration configuration, Uri[] seeds, string outputPath)
         {
             if (configuration == null)
@@ -136,6 +161,16 @@ namespace WebCrawler
             this.configuration = configuration;
             this.seeds = seeds;
             this.outputPath = outputPath;
+        }
+
+        public async Task<bool> CrawlAsync()
+        {
+            return await Task.Run(() => 
+            {
+                this.Crawl();
+
+                return true;
+            });
         }
 
         public void Crawl()
@@ -219,28 +254,6 @@ namespace WebCrawler
         public Uri[] GetConnections(Uri host)
         {
             return this.graph.GetChildren(host);
-        }
-
-        /// <summary>Scrapes seed info and builds graph of the hosts with which 
-        /// current seed url is connected.</summary>
-        private void Start(Uri host, Site site)
-        {
-            // Dowloading html pages in parallel and adding them to the blocking queue
-            var scraper = new Scraper(site.Map, site.HtmlDownloadPath);
-            var task = Task.Run(() => scraper.DownloadHtmls(this.blockingQueue));
-
-            // scraper.DownloadHtmls() completes this loop
-            while (!this.blockingQueue.IsCompleted)
-            {
-                var htmlFile = this.blockingQueue.Take();
-
-                var nextHosts = this.ParseHosts(htmlFile, site.Configuration.DeleteHtmlAfterScrape);
-
-                this.UpdateGraph(site.Url, nextHosts);
-            }
-
-            // Task should be done by now because blocking queue loop is over
-            task.Wait();
         }
     }
 }
