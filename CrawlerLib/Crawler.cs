@@ -141,6 +141,9 @@ namespace WebCrawler
         /// <summary>Gets crawler data base object.</summary>
         public DataBase CrawlerDataBase { get {return this.graph.CrawlDataBase; } }
 
+        /// <summary>Gets sites graph.</summary>
+        public Graph CrawlerGraph { get {return this.graph; } }
+
         public Crawler(CrawlerConfiguration configuration, Uri[] seeds, string outputPath)
         {
             if (configuration == null)

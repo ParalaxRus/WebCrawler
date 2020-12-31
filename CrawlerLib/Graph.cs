@@ -6,6 +6,22 @@ using System.Collections.Generic;
 namespace WebCrawler
 {
 
+public class CrawlGraphEdgeArgs
+{
+    public string Parent { get; }
+
+    public string Child { get; }
+
+    public int Weight { get; }
+
+    public CrawlGraphEdgeArgs(string parent, string child, int weight) 
+    { 
+        this.Parent = parent;
+        this.Child = child;
+        this.Weight = weight;
+    }
+}
+
 /// <summary>Connected directed graph with weights.</summary>
 public class Graph
 {
@@ -26,6 +42,17 @@ public class Graph
             this.Weight = 1;
         }
 
+        public override bool Equals(Object other)
+        {
+            var edge = other as Edge;
+            if (edge == null)
+            {
+                return false;
+            }
+            
+            return (this.Child == edge.Child);
+        }
+
         public override int GetHashCode()
         {
             return this.Child.GetHashCode();
@@ -35,6 +62,24 @@ public class Graph
     private Dictionary<Uri, HashSet<Edge>> graph = new Dictionary<Uri, HashSet<Edge>>();
 
     private DataBase dataBase = null;
+
+    #region Graph events
+
+    protected virtual void RaiseGraphEvent(string parent, string child, int weight)
+    {
+        if (this.GraphEvent != null)
+        {
+            this.GraphEvent.Invoke(this, new CrawlGraphEdgeArgs(parent, child, weight));
+        }
+    }
+
+    // Declare the delegate (if using non-generic pattern).
+    public delegate void GraphEventHandler(object sender, CrawlGraphEdgeArgs e);
+
+    // Declare the event.
+    public event GraphEventHandler GraphEvent;
+
+    #endregion
 
     public bool IsPersistent {get { return (this.dataBase != null); } }
 
@@ -104,18 +149,23 @@ public class Graph
         var edges = this.graph[parent];
 
         Edge value = null;
+        int weight = 1;
         if (edges.TryGetValue(edge, out value))
         {
             // Increasing child's weight
             ++value.Weight;
-
-            return false;
+            
+            weight = value.Weight;
+        }
+        else
+        {
+            // Adding new child
+            edges.Add(edge);
         }
 
-        // Adding new child
-        edges.Add(edge);
+        this.RaiseGraphEvent(parent.Host, child.Host, weight);
 
-        return true;    
+        return (value == null);
     }
 
     public Uri[] GetChildren(Uri parent)
@@ -133,6 +183,26 @@ public class Graph
         var edges = this.graph[parent];
 
         return edges.Select(edge => edge.Child).ToArray();
+    }
+
+    public int GetConnectionWeight(Uri parent, Uri child)
+    {
+        if (!this.graph.ContainsKey(parent))
+        {
+            throw new ArgumentException("parent");
+        }
+
+        var edges = this.graph[parent];
+
+        Edge res = null;
+        var edge = new Edge(child);
+
+        if (!edges.TryGetValue(edge, out res))
+        {
+            throw new ArgumentException("child");
+        }
+
+        return res.Weight;
     }
 
     /// <summary>Saves graph and its database representation (if enabled) to the disk.</summary>

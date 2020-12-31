@@ -101,9 +101,9 @@ namespace WebCrawler
             this.RobotsPath = System.IO.Path.Combine(this.Path, "robots.txt");
             this.RobotsUrl = new Uri(this.Url + "robots.txt");
             this.GraphFile = System.IO.Path.Combine(this.Path, "graph.txt");
-            this.SerializedSitePath = System.IO.Path.Combine(this.Path, url.Host + ".site.json");
+            this.SerializedSitePath = System.IO.Path.Combine(this.Path, "site.json");
             this.HtmlDownloadPath = System.IO.Path.Combine(this.Path, "Html");
-            this.SiteDbFile = System.IO.Path.Combine(this.Path, url.Host + ".dataset.xml");
+            this.SiteDbFile = System.IO.Path.Combine(this.Path, "database.xml");
         }
 
         public void Serialize()
