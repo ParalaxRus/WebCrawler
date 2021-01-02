@@ -8,7 +8,8 @@ using System.Diagnostics;
 
 namespace WebCrawler
 {
-    public class Crawler
+    /// <summary>Web crawler class.</summary>
+    public partial class Crawler
     {
         /// <summary>Crawler settings.</summary>
         private CrawlerConfiguration configuration = null;
@@ -138,6 +139,49 @@ namespace WebCrawler
             task.Wait();
         }
 
+        private Agent RetrievePolicy(Site site)
+        {
+            this.RaiseStatusEvent("Retrieving policy", 0.0);
+
+            var sitePolicy = new SitePolicy(site.RobotsUrl, site.RobotsPath);
+            var task = sitePolicy.DetectAsync();
+            task.Wait();
+            if (!task.Result)
+            {
+                Trace.TraceError("Failed to obtain policy");
+            }
+
+            var policy = sitePolicy.GetPolicy(); // Empty policy if none detected
+
+            this.RaiseStatusEvent("Policy obtained", 0.0);
+
+            return policy;
+        }
+
+        private void RetrieveSitemap(Site site, Agent policy)
+        {
+            this.RaiseStatusEvent("Retrieving sitemap", 0.0);
+
+            if (policy.IsSitemap)
+            {
+                // Static sitemap found
+                site.Map = new Sitemap(site.Url, 
+                                       policy.Sitemap,
+                                       site.Path, 
+                                       site.Configuration.SaveSitemapFiles,
+                                       site.Configuration.SaveUrls);
+
+                site.Map.Build(policy.Disallow, policy.Allow);
+            }
+            else
+            {
+                // Need to dynamically obtain sitemap graph
+                throw new NotImplementedException();
+            }
+
+            this.RaiseStatusEvent("Sitemap obtained", 0.0);
+        }
+
         /// <summary>Gets crawler data base object.</summary>
         public DataBase CrawlerDataBase { get {return this.graph.CrawlDataBase; } }
 
@@ -166,18 +210,10 @@ namespace WebCrawler
             this.outputPath = outputPath;
         }
 
-        public async Task<bool> CrawlAsync()
-        {
-            return await Task.Run(() => 
-            {
-                this.Crawl();
-
-                return true;
-            });
-        }
-
         public void Crawl()
         {
+            this.RaiseStatusEvent("Crawling started", 0.0);
+
             foreach (var seed in this.seeds)
             {
                 var site = new Site(seed, this.outputPath, this.configuration);
@@ -185,46 +221,27 @@ namespace WebCrawler
                 try
                 {
                     Trace.TraceInformation("Crawling: " + seed.Host);
+                    this.RaiseStatusEvent(string.Format("Crawling {0}", seed.Host), 0.0);
 
-                    // Determining site policy if any
-                    var sitePolicy = new SitePolicy(site.RobotsUrl, site.RobotsPath);
-                    var task = sitePolicy.DetectAsync();
-                    task.Wait();
-                    if (!task.Result)
-                    {
-                        Trace.TraceError("Failed to obtain policy");
-                    }
-                    var policy = sitePolicy.GetPolicy(); // Empty policy if none detected
+                    var policy = this.RetrievePolicy(site);
 
-                    if (policy.IsSitemap)
-                    {
-                        // Static sitemap found
-                        site.Map = new Sitemap(site.Url, 
-                                               policy.Sitemap,
-                                               site.Path, 
-                                               site.Configuration.SaveSitemapFiles,
-                                               site.Configuration.SaveUrls);
+                    RetrieveSitemap(site, policy);
 
-                        site.Map.Build(policy.Disallow, policy.Allow);
-                    }
-                    else
+                    if (this.graph.IsParent(seed))
                     {
-                        // Need to dynamically obtain sitemap graph
-                        throw new NotImplementedException();
+                        Trace.TraceInformation(string.Format("Seed {0} has already been discovered", seed.Host));
+
+                        // TO-DO: Rediscover in case if seed info is outdated
+
+                        continue;
                     }
+
+                    this.graph.AddParent(seed, policy.IsRobots, policy.IsSitemap);
                 
-                    // Might exist as a child of another host already. However does not have
-                    // policy information yet because its crawling has not began
-                    // so need to update table anyways
-                    // Refactor does not look good ...
-                    if (this.graph.IsPersistent)
-                    {
-                        this.graph.CrawlDataBase.AddHost(seed.Host, policy.IsRobots, policy.IsSitemap);
-                    }
-
                     this.Start(seed, site);
 
                     Trace.TraceInformation(string.Format("Crawling {0} completed successfully", seed.Host));
+                    this.RaiseStatusEvent(string.Format("{0} completed", seed.Host), 1.0);
                 }
                 catch (Exception exception)
                 {
@@ -251,6 +268,8 @@ namespace WebCrawler
                     site.Serialize();
                 }   
             }
+
+            this.RaiseStatusEvent("Crawling completed", 1.0);
         }
 
         /// <summary>Gets collection of sites connected to the specified host.</summary>

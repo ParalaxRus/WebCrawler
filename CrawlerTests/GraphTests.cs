@@ -1,5 +1,5 @@
 using System;
-
+using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace WebCrawler
@@ -32,7 +32,22 @@ namespace WebCrawler
         }
 
         [TestMethod]
-        public void AddingSameChildMultipleTimesShouldUpateEdgeWeight()
+        public void AddParentSecondTimeShouldNotModifyItAndReturnFalse()
+        {
+            var graph = new Graph(true);
+
+            var parent1 = new Uri("http://www.parent.com");
+            Assert.IsTrue(graph.AddParent(parent1, true, true));
+
+            var parent2 = new Uri("http://www.parent.com");
+            Assert.IsFalse(graph.AddParent(parent2, false, false));
+
+            var attributes = graph.GetParentAttributes(parent2);
+            Assert.IsTrue(attributes.SequenceEqual(new object[] {true, true}));
+        }
+
+        [TestMethod]
+        public void AddSameChildMultipleTimesShouldUpateEdgeWeight()
         {
             var graph = new Graph(true);
 
@@ -48,6 +63,34 @@ namespace WebCrawler
             
             int weight = graph.GetConnectionWeight(parent, child);
             Assert.AreEqual(weight, 4);
+        }
+
+        [TestMethod]
+        public void AddChildShouldNotModifyParents()
+        {
+            var graph = new Graph(true);
+
+            var parent = new Uri("http://www.parent.com");
+            graph.AddParent(parent);
+
+            var child = new Uri("http://www.child.com");
+            graph.AddChild(parent, child);
+
+            Assert.IsFalse(graph.IsParent(child));
+        }
+
+        [TestMethod]
+        public void AddParentAsAChildShouldSuccessfullyAddIt()
+        {
+            var graph = new Graph(true);
+
+            var parent = new Uri("http://www.parent.com");
+            graph.AddParent(parent);
+
+            var child = new Uri("http://www.child.com");
+            graph.AddChild(parent, child);
+
+            Assert.IsFalse(graph.IsParent(child));
         }
     }
 }

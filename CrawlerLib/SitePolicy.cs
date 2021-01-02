@@ -22,6 +22,9 @@ namespace WebCrawler
 
         public HashSet<string> Disallow { get; private set; }
 
+        /// <summary>Checks whether agent's policy is empty or not.</summary>
+        public bool IsEmpty { get { return this.Name.Length == 0; } }
+
         public Agent(string name)
         {
             this.Name = name;

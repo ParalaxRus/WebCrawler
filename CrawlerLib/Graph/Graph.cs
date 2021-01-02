@@ -6,28 +6,14 @@ using System.Collections.Generic;
 namespace WebCrawler
 {
 
-public class CrawlGraphEdgeArgs
-{
-    public string Parent { get; }
-
-    public string Child { get; }
-
-    public int Weight { get; }
-
-    public CrawlGraphEdgeArgs(string parent, string child, int weight) 
-    { 
-        this.Parent = parent;
-        this.Child = child;
-        this.Weight = weight;
-    }
-}
-
-/// <summary>Connected directed graph with weights.</summary>
-public class Graph
+/// <summary>Connected directed graph with weights. At any point graph will have parent vertex (hosts/seeds) 
+/// and outgoing edges (connections) to the children leaves. However leaves might not exist until 
+/// they've been discovered by crawler.</summary>
+public partial class Graph
 {
     private class Edge
     {
-        public Uri Child { get;set; }
+        public Uri Child { get; private set; }
 
         public int Weight { get; set; }
 
@@ -59,27 +45,29 @@ public class Graph
         }
     }
 
-    private Dictionary<Uri, HashSet<Edge>> graph = new Dictionary<Uri, HashSet<Edge>>();
-
-    private DataBase dataBase = null;
-
-    #region Graph events
-
-    protected virtual void RaiseGraphEvent(string parent, string child, int weight)
+    private class GraphValue
     {
-        if (this.GraphEvent != null)
+        /// <summary>Gets vertex discovery time.</summary>
+        public DateTime DiscoveryTime { get; private set; }
+
+        /// <summary>Gets edges.</summary>
+        public HashSet<Edge> Edges { get; private set; }
+
+        public GraphValue()
         {
-            this.GraphEvent.Invoke(this, new CrawlGraphEdgeArgs(parent, child, weight));
+            this.DiscoveryTime = DateTime.UtcNow;
+            this.Edges = new HashSet<Edge>();
         }
     }
 
-    // Declare the delegate (if using non-generic pattern).
-    public delegate void GraphEventHandler(object sender, CrawlGraphEdgeArgs e);
+    /// <summary>Graph object (vertex, edges).</summary>
+    private Dictionary<Uri, GraphValue> graph = new Dictionary<Uri, GraphValue>();
 
-    // Declare the event.
-    public event GraphEventHandler GraphEvent;
+    /// <summary>Vertex attributes.</summary>
+    private Dictionary<Uri, object[]> attributes = new Dictionary<Uri, object[]>();
 
-    #endregion
+    // Maybe its not such a good idea to connect DB and graph ...
+    private DataBase dataBase = null;
 
     public bool IsPersistent {get { return (this.dataBase != null); } }
 
@@ -104,26 +92,34 @@ public class Graph
         }
     }
 
+    /// <summary>Checks whether graph contains specified parent vertex or not.</summary>
+    public bool IsParent(Uri parent)
+    {
+        return this.graph.ContainsKey(parent);
+    }
+
     /// <summary>Adds parent if does not exist.</summary>
-    public bool AddParent(Uri parent)
+    public bool AddParent(Uri parent, bool isRobots = false, bool isSitemap = false)
     {
         if (parent == null)
         {
             throw new ArgumentNullException();
         }
 
-        if (this.graph.ContainsKey(parent))
+        if (this.IsParent(parent))
         {
-            // Already exists
             return false;
         }
 
-        this.graph.Add(parent, new HashSet<Edge>());
+        this.graph.Add(parent, new GraphValue());
+        this.attributes.Add(parent, new object[] { isRobots, isSitemap });
 
-        if (this.dataBase != null)
+        if (this.IsPersistent)
         {
-            this.dataBase.AddHost(parent.Host, false, false);
+            this.dataBase.AddHost(parent.Host, isRobots, isSitemap);
         }
+
+        this.RaiseHostDiscoveredEvent(parent, this.graph[parent].DiscoveryTime, this.attributes[parent]);
         
         return true;
     }
@@ -133,37 +129,41 @@ public class Graph
     /// increases existing child weight and return false.</returns>
     public bool AddChild(Uri parent, Uri child)
     {
-        if (!this.graph.ContainsKey(parent))
+        if (!this.IsParent(parent))
         {
-            throw new ArithmeticException();
+            throw new ArgumentException();
         }
 
-        if (this.dataBase != null)
+        if (this.IsPersistent)
         {
-            this.dataBase.AddHost(child.Host, false, false);
+            if (this.dataBase.GetHostRecord(child.Host) == null)
+            {
+                this.dataBase.AddHost(child.Host, false, false);
+            }
+            
             this.dataBase.AddConnection(parent.Host, child.Host);
         }
+        
+        var value = this.graph[parent];
 
-        var edge = new Edge(child);
+        var newEdge = new Edge(child);
 
-        var edges = this.graph[parent];
-
-        Edge value = null;
+        Edge existingEdge = null;
         int weight = 1;
-        if (edges.TryGetValue(edge, out value))
+        if (value.Edges.TryGetValue(newEdge, out existingEdge))
         {
             // Increasing child's weight
-            ++value.Weight;
-            
-            weight = value.Weight;
+            ++existingEdge.Weight;
+
+            weight = existingEdge.Weight;
         }
         else
         {
             // Adding new child
-            edges.Add(edge);
+            value.Edges.Add(newEdge);
         }
 
-        this.RaiseGraphEvent(parent.Host, child.Host, weight);
+        this.RaiseConnectionDiscoveredEvent(parent, child, weight);
 
         return (value == null);
     }
@@ -180,9 +180,24 @@ public class Graph
             throw new ApplicationException(string.Format("Parent {} does not exist", parent.Host));
         }
 
-        var edges = this.graph[parent];
+        var value = this.graph[parent];
 
-        return edges.Select(edge => edge.Child).ToArray();
+        return value.Edges.Select(edge => edge.Child).ToArray();
+    }
+
+    public object[] GetParentAttributes(Uri parent)
+    {
+        if (parent == null)
+        {
+            throw new ArgumentNullException();
+        }
+
+        if (!this.graph.ContainsKey(parent))
+        {
+            throw new ApplicationException(string.Format("Parent {} does not exist", parent.Host));
+        }
+
+        return this.attributes[parent];
     }
 
     public int GetConnectionWeight(Uri parent, Uri child)
@@ -192,17 +207,17 @@ public class Graph
             throw new ArgumentException("parent");
         }
 
-        var edges = this.graph[parent];
+        var value = this.graph[parent];
 
-        Edge res = null;
-        var edge = new Edge(child);
+        var lookup = new Edge(child);
 
-        if (!edges.TryGetValue(edge, out res))
+        Edge existingEdge = null;
+        if (!value.Edges.TryGetValue(lookup, out existingEdge))
         {
             throw new ArgumentException("child");
         }
 
-        return res.Weight;
+        return existingEdge.Weight;
     }
 
     /// <summary>Saves graph and its database representation (if enabled) to the disk.</summary>
@@ -223,7 +238,7 @@ public class Graph
         {
             foreach (var kvp in this.graph)
             {
-                foreach (var child in kvp.Value)
+                foreach (var child in kvp.Value.Edges)
                 {
                     writer.WriteLine("{0}: {1}, {2}", kvp.Key, child.Child, child.Weight);
                 }
