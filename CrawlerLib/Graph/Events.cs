@@ -3,7 +3,7 @@ using System;
 namespace WebCrawler
 {
 
-public class ConnectionDiscoveredArgs
+public class ConnectionDiscoveredArgs : EventArgs
 {
     public Uri Parent { get; }
 
@@ -34,7 +34,7 @@ public class ConnectionDiscoveredArgs
     }
 }
 
-public class HostDiscoveredArgs
+public class HostDiscoveredArgs : EventArgs
 {
     public Uri Host { get; }
 
@@ -49,11 +49,6 @@ public class HostDiscoveredArgs
             throw new ArgumentNullException("host");
         }
 
-        if (time == null)
-        {
-            throw new ArgumentNullException("time");
-        }
-
         if (attributes == null)
         {
             throw new ArgumentNullException("attributes");
@@ -65,26 +60,32 @@ public class HostDiscoveredArgs
     }
 }
 
-//devide into status and progress events ...
-public class StatusArgs
+public class StatusArgs : EventArgs
 {
     public string Status { get; }
 
-    public double Progress { get; }
-
-    public StatusArgs(string status, double progress) 
+    public StatusArgs(string status) 
     { 
         if (status == null)
         {
             throw new ArgumentNullException("status");
         }
 
+        this.Status = status;
+    }
+}
+
+public class ProgressArgs : EventArgs
+{
+    public double Progress { get; }
+
+    public ProgressArgs(double progress) 
+    { 
         if ((progress < 0.0) || (progress > 1.0))
         {
             throw new ArgumentNullException("progress");
         }
 
-        this.Status = status;
         this.Progress = progress;
     }
 }
@@ -92,6 +93,8 @@ public class StatusArgs
 /// <summary>Graph events logic.</summary>
 public partial class Graph
 {
+    #region Connection event
+
     protected virtual void RaiseConnectionDiscoveredEvent(Uri parent, Uri child, int weight)
     {
         if (this.ConnectionDiscoveredEvent != null)
@@ -99,6 +102,14 @@ public partial class Graph
             this.ConnectionDiscoveredEvent.Invoke(this, new ConnectionDiscoveredArgs(parent, child, weight));
         }
     }
+
+    public delegate void ConnectionDiscoveredEventHandler(object sender, ConnectionDiscoveredArgs e);
+
+    public event ConnectionDiscoveredEventHandler ConnectionDiscoveredEvent;
+
+    #endregion
+
+    #region Host event
 
     protected virtual void RaiseHostDiscoveredEvent(Uri host, DateTime time, object[] attributes)
     {
@@ -108,31 +119,47 @@ public partial class Graph
         }
     }
 
-
     public delegate void HostDiscoveredEventHandler(object sender, HostDiscoveredArgs e);
 
-    public delegate void ConnectionDiscoveredEventHandler(object sender, ConnectionDiscoveredArgs e);
-
-
-    public event ConnectionDiscoveredEventHandler ConnectionDiscoveredEvent;
-
     public event HostDiscoveredEventHandler HostDiscoveredEvent;
+
+    #endregion
 }
 
 /// <summary>Crawler events logic.</summary>
 public partial class Crawler
 {
-    protected virtual void RaiseStatusEvent(string status, double progress)
+    #region Status event
+
+    protected virtual void RaiseStatusEvent(string status)
     {
         if (this.StatusEvent != null)
         {
-            this.StatusEvent.Invoke(this, new StatusArgs(status, progress));
+            this.StatusEvent.Invoke(this, new StatusArgs(status));
         }
     }
 
     public delegate void StatusEventHandler(object sender, StatusArgs e);
 
     public event StatusEventHandler StatusEvent;
+
+    #endregion
+
+    #region Progress event
+
+    protected virtual void RaiseProgressEvent(double progress)
+    {
+        if (this.ProgressEvent != null)
+        {
+            this.ProgressEvent.Invoke(this, new ProgressArgs(progress));
+        }
+    }
+
+    public delegate void ProgressEventHandler(object sender, ProgressArgs e);
+
+    public event ProgressEventHandler ProgressEvent;
+
+    #endregion
 }
 
 }

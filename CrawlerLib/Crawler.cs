@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 
 namespace WebCrawler
 {
@@ -27,6 +28,8 @@ namespace WebCrawler
 
         private Regex hrefPattern = new Regex("href\\s*=\\s*(?:\"(?<1>[^\"]*)\"|(?<1>\\S+))",
                                               RegexOptions.IgnoreCase);
+
+        private CancellationToken cancellationToken;
 
         private Uri GetHostUri(string href)
         {
@@ -117,12 +120,17 @@ namespace WebCrawler
             }
         }
 
+        private void ScraperCallback(double progress)
+        {
+            this.RaiseProgressEvent(progress);
+        }
+
         /// <summary>Scrapes seed info and builds graph of the hosts with which 
         /// current seed url is connected.</summary>
         private void Start(Uri host, Site site)
         {
             // Dowloading html pages in parallel and adding them to the blocking queue
-            var scraper = new Scraper(site.Map, site.HtmlDownloadPath);
+            var scraper = new Scraper(site.Map, site.HtmlDownloadPath, this.ScraperCallback, this.cancellationToken);
             var task = Task.Run(() => scraper.DownloadHtmls(this.blockingQueue));
 
             // scraper.DownloadHtmls() completes this loop
@@ -141,26 +149,29 @@ namespace WebCrawler
 
         private Agent RetrievePolicy(Site site)
         {
-            this.RaiseStatusEvent("Retrieving policy", 0.0);
+            this.RaiseStatusEvent(string.Format("{0} retrieving policy", site.Url.Host));
 
             var sitePolicy = new SitePolicy(site.RobotsUrl, site.RobotsPath);
             var task = sitePolicy.DetectAsync();
             task.Wait();
             if (!task.Result)
             {
-                Trace.TraceError("Failed to obtain policy");
+                var error = string.Format("{0} failed to obtain policy", site.Url.Host);
+
+                this.RaiseStatusEvent(error);
+                Trace.TraceError(error);
             }
 
             var policy = sitePolicy.GetPolicy(); // Empty policy if none detected
 
-            this.RaiseStatusEvent("Policy obtained", 0.0);
+            this.RaiseStatusEvent(string.Format("{0} policy obtained", site.Url.Host));
 
             return policy;
         }
 
         private void RetrieveSitemap(Site site, Agent policy)
         {
-            this.RaiseStatusEvent("Retrieving sitemap", 0.0);
+            this.RaiseStatusEvent(string.Format("{0} retrieving sitemap", site.Url.Host));
 
             if (policy.IsSitemap)
             {
@@ -179,7 +190,7 @@ namespace WebCrawler
                 throw new NotImplementedException();
             }
 
-            this.RaiseStatusEvent("Sitemap obtained", 0.0);
+            this.RaiseStatusEvent(string.Format("{0} sitemap obtained", site.Url.Host));
         }
 
         /// <summary>Gets crawler data base object.</summary>
@@ -188,7 +199,7 @@ namespace WebCrawler
         /// <summary>Gets sites graph.</summary>
         public Graph CrawlerGraph { get {return this.graph; } }
 
-        public Crawler(CrawlerConfiguration configuration, Uri[] seeds, string outputPath)
+        public Crawler(CrawlerConfiguration configuration, Uri[] seeds, string outputPath, CancellationToken token)
         {
             if (configuration == null)
             {
@@ -208,20 +219,29 @@ namespace WebCrawler
             this.configuration = configuration;
             this.seeds = seeds;
             this.outputPath = outputPath;
+            this.cancellationToken = token;
         }
 
         public void Crawl()
         {
-            this.RaiseStatusEvent("Crawling started", 0.0);
+            this.RaiseStatusEvent("Crawling started");
+            this.RaiseProgressEvent(0.0);
 
             foreach (var seed in this.seeds)
             {
+                if (this.cancellationToken.IsCancellationRequested)
+                {
+                    Trace.TraceInformation("Crawl cancel requested");
+                    break;
+                }
+
                 var site = new Site(seed, this.outputPath, this.configuration);
 
                 try
                 {
-                    Trace.TraceInformation("Crawling: " + seed.Host);
-                    this.RaiseStatusEvent(string.Format("Crawling {0}", seed.Host), 0.0);
+                    string info = string.Format("Crawling {0}", seed.Host);
+                    Trace.TraceInformation(info);
+                    this.RaiseStatusEvent(info);
 
                     var policy = this.RetrievePolicy(site);
 
@@ -240,8 +260,9 @@ namespace WebCrawler
                 
                     this.Start(seed, site);
 
-                    Trace.TraceInformation(string.Format("Crawling {0} completed successfully", seed.Host));
-                    this.RaiseStatusEvent(string.Format("{0} completed", seed.Host), 1.0);
+                    info = string.Format("Crawling {0} completed", seed.Host);
+                    Trace.TraceInformation(info);
+                    this.RaiseStatusEvent(info);
                 }
                 catch (Exception exception)
                 {
@@ -269,7 +290,8 @@ namespace WebCrawler
                 }   
             }
 
-            this.RaiseStatusEvent("Crawling completed", 1.0);
+            this.RaiseStatusEvent("Crawling completed");
+            this.RaiseProgressEvent(1.0);
         }
 
         /// <summary>Gets collection of sites connected to the specified host.</summary>

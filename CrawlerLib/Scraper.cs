@@ -9,11 +9,16 @@ namespace WebCrawler
     /// <summary>Web scraper downloads html files from the site using provided sitemap.</summary>
     internal class Scraper
     {
-        Sitemap sitemap = null;
+        private Sitemap sitemap = null;
 
-        string htmlDownloadPath = null;
+        private string htmlDownloadPath = null;
 
-        Random random = new Random();
+        private Random random = new Random();
+
+        /// <summary>Report progress optional callback.</summary>
+        private Action<double> reportProgress = null;
+
+        private CancellationToken cancellationToken;
 
         private Dictionary<int, Uri> GetHtmlUrls()
         {
@@ -72,12 +77,20 @@ namespace WebCrawler
         {
             var random = new Random();
 
-            var samples = this.Take(htmlMap, 10);
+            const int pagesToScrape = 12;
+            var samples = this.Take(htmlMap, pagesToScrape);
 
-            foreach (var uri in samples)
+            for (int i = 0; (i < samples.Count) && !this.cancellationToken.IsCancellationRequested; ++i)
             {
+                var uri = samples[i];
+
+                // Sleeping until delay or cancel
                 var delay = random.Next(delayInterval[0], delayInterval[1] + 1);
-                Thread.Sleep(delay * 1000);
+                bool isCancelled = this.cancellationToken.WaitHandle.WaitOne(delay * 1000);
+                if (isCancelled)
+                {
+                    break;
+                }
 
                 var file = Path.Join(this.htmlDownloadPath, uri.LocalPath);
                 Directory.CreateDirectory(Path.GetDirectoryName(file));
@@ -87,10 +100,15 @@ namespace WebCrawler
                     // Producer: adding downloaded file
                     queue.Add(file);
                 }
+
+                if (this.reportProgress != null)
+                {                   
+                    this.reportProgress((i + 1) / (double)pagesToScrape);
+                }
             }
         }
 
-        public Scraper(Sitemap sitemap, string htmlDownloadPath)
+        public Scraper(Sitemap sitemap, string htmlDownloadPath, Action<double> reportProgress, CancellationToken token)
         {
             if (sitemap == null)
             {
@@ -110,6 +128,8 @@ namespace WebCrawler
 
             this.sitemap = sitemap;
             this.htmlDownloadPath = htmlDownloadPath;
+            this.reportProgress = reportProgress;
+            this.cancellationToken = token;
         }
 
         public void DownloadHtmls(BlockingCollection<string> queue)

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace WebCrawler
 {
@@ -34,15 +36,23 @@ namespace WebCrawler
                 SerializeGraph = true
             };
 
+            var token = new CancellationTokenSource();
+
             var seedUrls = new Uri[]
             {
                 new Uri("https://www.google.com/")
             };
-            var crawler = new Crawler(configuration, seedUrls, Program.outputPath);
+            var crawler = new Crawler(configuration, seedUrls, Program.outputPath, token.Token);
 
-            crawler.Crawl();
+            var task = Task.Run(() =>
+            {
+                crawler.Crawl();
+            });
 
-            Console.WriteLine("Done");
+            task.Wait();
+            token.Dispose();
+
+            Console.WriteLine("Completed");
         }
     }
 }
