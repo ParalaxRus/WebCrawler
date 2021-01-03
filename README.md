@@ -2,7 +2,12 @@
 
 WebCrawler pet project in C#
 
-App, Lib and Unit Tests
+CrawlerApp - console application
+CrawlerLib - main assembly
+CrawlerTests - VS unit tests
+WinUiApp - Windows Forms UI application
+
+Console App, Lib and Unit Tests
 
 Breif description:
 - Starts crawling with provided seed sites
