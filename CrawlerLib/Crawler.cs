@@ -131,6 +131,8 @@ namespace WebCrawler
         {
             // Dowloading html pages in parallel and adding them to the blocking queue
             var scraper = new Scraper(site.Map, site.HtmlDownloadPath, this.ScraperCallback, this.cancellationToken);
+            site.PagesToScrape = scraper.GeneratePagesToScrape();
+
             var task = Task.Run(() => scraper.DownloadHtmls(this.blockingQueue));
 
             // scraper.DownloadHtmls() completes this loop

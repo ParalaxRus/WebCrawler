@@ -20,6 +20,8 @@ namespace WebCrawler
 
         private CancellationToken cancellationToken;
 
+        Dictionary<int, Uri> pagesToScrape = null;
+
         private Dictionary<int, Uri> GetHtmlUrls()
         {
             // Dictionary is needed:
@@ -132,13 +134,23 @@ namespace WebCrawler
             this.cancellationToken = token;
         }
 
-        public void DownloadHtmls(BlockingCollection<string> queue)
+        public int GeneratePagesToScrape()
         {
             // Generating collection of possible html links
-            var htmlMap = this.GetHtmlUrls();
+            this.pagesToScrape = this.GetHtmlUrls();
+
+            return this.pagesToScrape.Count;
+        }
+
+        public void DownloadHtmls(BlockingCollection<string> queue)
+        {
+            if (this.pagesToScrape == null)
+            {
+                throw new ApplicationException("Call GeneratePagesToScrape() first");
+            }
 
             // Slowly and randomly downloading html pages in order not to be banned by the site
-            this.SlowSequentialDownload(htmlMap, new int[] { 3, 6 }, queue);
+            this.SlowSequentialDownload(this.pagesToScrape, new int[] { 3, 6 }, queue);
 
             // No more html links left for the current site
             queue.CompleteAdding();
