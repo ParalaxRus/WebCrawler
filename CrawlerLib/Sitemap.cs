@@ -243,7 +243,7 @@ namespace WebCrawler
                     {
                         urls.UnionWith(concreteUrls);
                     }
-                }); // Comlpetes when all urls from the same levels are processed
+                }); // Completes when all urls from the same levels are processed
 
                 level = nextLevel.ToList();
             }

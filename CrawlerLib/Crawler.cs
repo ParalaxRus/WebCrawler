@@ -153,7 +153,7 @@ namespace WebCrawler
         {
             this.RaiseStatusEvent(string.Format("{0} retrieving policy", site.Url.Host));
 
-            var sitePolicy = new SitePolicy(site.RobotsUrl, site.RobotsPath);
+            var sitePolicy = new SitePolicy(site.Url, site.RobotsUrl, site.RobotsPath);
             var task = sitePolicy.DetectAsync();
             task.Wait();
             if (!task.Result)

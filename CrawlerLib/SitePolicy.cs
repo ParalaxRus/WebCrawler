@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using System.Diagnostics;
 using System.Collections.Generic;
 
 namespace WebCrawler
@@ -37,15 +38,49 @@ namespace WebCrawler
     /// <summary>Site policy detector class.</summary>
     public class SitePolicy
     {
-        private bool robotsDetected = false;
+        private Uri siteUrl = null;
 
         private Uri robotsUrl = null;
 
         private string robotsPath = null;
 
+        private bool robotsDetected = false;
+
         private Uri sitemap = null;
 
         private Dictionary<string, Agent> agents = new Dictionary<string, Agent>();
+
+        private bool IsValid(string value)
+        {
+            if (value.Length == 0)
+            {
+                return false;
+            }
+
+            if (value[0] != '/')
+            {
+                Trace.TraceWarning(string.Format("Skipping invalid record {0}", value));
+
+                return false;
+            }
+
+            if (value[value.Length - 1] == '$')
+            {
+                Trace.TraceWarning(string.Format("Skipping record with reserved character {0}", value));
+
+                return false;
+            }
+
+            var uri = new Uri(this.siteUrl, value);
+            if (uri.Query.Length != 0)
+            {
+                Trace.TraceWarning(string.Format("Skipping query record {0}", value));
+
+                return false;
+            }
+
+            return true;
+        }
 
         private void Parse(string file)
         {
@@ -86,11 +121,17 @@ namespace WebCrawler
                     }
                     else if (key == "allow:")
                     {
-                        this.agents[currentAgent].Allow.Add(value);
+                        if (this.IsValid(value))
+                        {
+                            this.agents[currentAgent].Allow.Add(value);
+                        }
                     }
                     else if (key == "disallow:")
                     {    
-                        this.agents[currentAgent].Disallow.Add(value);
+                        if (this.IsValid(value))
+                        {
+                            this.agents[currentAgent].Disallow.Add(value);
+                        }
                     }
                     else if (key == "sitemap:")
                     {
@@ -101,8 +142,13 @@ namespace WebCrawler
             }
         }
 
-        public SitePolicy(Uri robotsUrl, string robotsPath)
+        public SitePolicy(Uri siteUrl, Uri robotsUrl, string robotsPath)
         {
+            if (siteUrl == null)
+            {
+                throw new ArgumentNullException("siteUrl");
+            }
+
             if (robotsUrl == null)
             {
                 throw new ArgumentNullException("robotsUrl");
@@ -113,11 +159,12 @@ namespace WebCrawler
                 throw new ArgumentNullException("robotsPath");
             }
 
+            this.siteUrl = siteUrl;
             this.robotsUrl = robotsUrl;
             this.robotsPath = robotsPath;
         }
 
-        /// <summary>Gets crawler rules for the specified agent.</summary>
+        /// <summary>Gets raw policy for the specified agent.</summary>
         /// <param name="agent">Crawler agent. Star represents settings for all agents.</param>
         public Agent GetPolicy(string agent = "*")
         {
