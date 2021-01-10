@@ -149,12 +149,12 @@ namespace WebCrawler
             task.Wait();
         }
 
-        private Agent RetrievePolicy(Site site)
+        private Policy RetrievePolicy(Site site)
         {
             this.RaiseStatusEvent(string.Format("{0} retrieving policy", site.Url.Host));
 
-            var sitePolicy = new SitePolicy(site.Url, site.RobotsUrl, site.RobotsPath);
-            var task = sitePolicy.DetectAsync();
+            var sitePolicy = new PolicyManager(site.Url, site.RobotsUrl, site.RobotsPath);
+            var task = sitePolicy.RetrieveAsync();
             task.Wait();
             if (!task.Result)
             {
@@ -171,7 +171,7 @@ namespace WebCrawler
             return policy;
         }
 
-        private void RetrieveSitemap(Site site, Agent policy)
+        private void RetrieveSitemap(Site site, Policy policy)
         {
             this.RaiseStatusEvent(string.Format("{0} retrieving sitemap", site.Url.Host));
 
@@ -184,7 +184,7 @@ namespace WebCrawler
                                        site.Configuration.SaveSitemapFiles,
                                        site.Configuration.SaveUrls);
 
-                site.Map.Build(policy.Disallow, policy.Allow);
+                site.Map.Build(policy);
             }
             else
             {

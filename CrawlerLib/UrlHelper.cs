@@ -44,7 +44,7 @@ namespace WebCrawler
             }
         }
 
-        public static bool IsResourse(Uri uri)
+        public static bool IsResource(Uri uri)
         {
             if (uri.LocalPath.Length == 0)
             {
