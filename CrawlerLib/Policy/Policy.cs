@@ -45,6 +45,16 @@ namespace WebCrawler
 
         private bool Add(SortedSet<string> set, string value)
         {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new ArgumentException("value");
+            }
+
+            if (this.IsEmpty)
+            {
+                throw new ApplicationException("Policy is empty");
+            }
+
             if (!this.IsValid(value))
             {
                 Trace.TraceWarning(string.Format("Policy record {0} is not supported", value));
@@ -59,12 +69,17 @@ namespace WebCrawler
 
         private int GetLongestMatch(SortedSet<string> set, string localPath)
         {
-            foreach (var val in set)
+            foreach (var value in set)
             {
-                var match = Regex.Match(localPath, val);
+                // Wildcard should be replaced by appropriate regex pattern
+                var regexPattern = value.Replace("*", ".*");
+
+                var match = Regex.Match(localPath, regexPattern);
                 if (match.Success)
                 {
-                    return val.Length;
+                    // Original length of the original robots.txt record 
+                    // and not processed regex pattern length
+                    return value.Length;
                 }
             }   
 
@@ -117,6 +132,11 @@ namespace WebCrawler
         /// allowed to crawl by a current agent or not.</summary>
         public bool IsAllowed(string localPath)
         {
+            if (this.IsEmpty)
+            {
+                throw new ApplicationException("Policy is empty");
+            }
+
             int maxDisallowedMatch = this.GetLongestMatch(this.disallowed, localPath);
             if (maxDisallowedMatch == -1)
             {

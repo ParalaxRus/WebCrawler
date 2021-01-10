@@ -71,8 +71,11 @@ namespace WebCrawler
         /// <summary>Gets or sets site database file.</summary>
         public string SiteDbFile { get; set; }
 
-        /// <summary>Gets or sets number of pages to be scraped for this site.</summary>
-        public int PagesToScrape { get; set; }
+        /// <summary>Gets or sets total number of discovered pages.</summary>
+        public int DiscoveredUrls { get; set; }
+
+        /// <summary>Gets or sets number of pages to be scraped.</summary>
+        public int UrlsToScrape { get; set; }
 
         public Site(Uri url, string path, CrawlerConfiguration configuration)
         {
@@ -107,7 +110,8 @@ namespace WebCrawler
             this.SerializedSitePath = System.IO.Path.Combine(this.Path, "site.json");
             this.HtmlDownloadPath = System.IO.Path.Combine(this.Path, "Html");
             this.SiteDbFile = System.IO.Path.Combine(this.Path, "database.xml");
-            this.PagesToScrape = 0;
+            this.DiscoveredUrls = 0;
+            this.UrlsToScrape = 0;
         }
 
         public void Serialize()

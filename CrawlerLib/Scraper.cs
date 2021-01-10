@@ -134,15 +134,16 @@ namespace WebCrawler
             this.cancellationToken = token;
         }
 
-        public int GeneratePagesToScrape()
+        public Tuple<int, int> DiscoverLinks()
         {
             // Generating collection of possible html links
             this.pagesToScrape = this.GetHtmlUrls();
 
-            return this.pagesToScrape.Count;
+            return new Tuple<int, int>(this.pagesToScrape.Count, this.sitemap.DiscoveredUrls);
         }
 
-        public void DownloadHtmls(BlockingCollection<string> queue)
+        /// <summary>Download and parse urls.</summary>
+        public void Scrape(BlockingCollection<string> queue)
         {
             if (this.pagesToScrape == null)
             {

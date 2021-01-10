@@ -131,9 +131,11 @@ namespace WebCrawler
         {
             // Dowloading html pages in parallel and adding them to the blocking queue
             var scraper = new Scraper(site.Map, site.HtmlDownloadPath, this.ScraperCallback, this.cancellationToken);
-            site.PagesToScrape = scraper.GeneratePagesToScrape();
+            var counts = scraper.DiscoverLinks();
+            site.UrlsToScrape = counts.Item1;
+            site.DiscoveredUrls = counts.Item2;
 
-            var task = Task.Run(() => scraper.DownloadHtmls(this.blockingQueue));
+            var task = Task.Run(() => scraper.Scrape(this.blockingQueue));
 
             // scraper.DownloadHtmls() completes this loop
             while (!this.blockingQueue.IsCompleted)
@@ -247,7 +249,7 @@ namespace WebCrawler
 
                     var policy = this.RetrievePolicy(site);
 
-                    RetrieveSitemap(site, policy);
+                    this.RetrieveSitemap(site, policy);
 
                     if (this.graph.IsParent(seed))
                     {

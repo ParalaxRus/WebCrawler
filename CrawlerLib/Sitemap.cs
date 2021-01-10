@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using System.Reflection;
+using System.Threading;
 
 namespace WebCrawler
 {
@@ -20,8 +21,11 @@ namespace WebCrawler
         private bool saveUrls = true;
         private Policy policy = null;
 
-        /// <summary>Links to hosts web pages which could be scraped.</summary>
+        /// <summary>Host links which are allowed to be scraped.</summary>
         private HashSet<Uri> urls = null;
+
+        /// <summary>Total number discovered links at this host (including disallowed).</summary>
+        private int discoveredUrls = 0;
 
         private static bool EndsWith(string value, string[] endsWith)
         {
@@ -154,52 +158,106 @@ namespace WebCrawler
             return urls;
         }
 
-        private HashSet<Uri> RetrieveUsingSitemap(Uri sitemapRoot)
+        /// <summary>Refactor - looks ugly !</summary>
+        private void AddNext(Queue<Uri> indices, HashSet<Uri> urls, HashSet<Uri>[] next, bool isThreadSafe)
         {
-            var pagesToScrape = new HashSet<Uri>();
+            var indexUrls = next[0];
+            var regularUrls = next[1];
 
-            var visited = new HashSet<string>();
-            var queue = new Queue<Uri>();
-            queue.Enqueue(sitemapRoot);
-
-            while (queue.Count != 0)
+            // Sitemap index files
+            foreach (var index in indexUrls)
             {
-                var sitemap = queue.Dequeue();
+                var localPath = index.LocalPath;
 
-                var localPath = sitemap.LocalPath;
-                if (visited.Contains(localPath))
+                // Unlikely that sitemap index is dissalowed but still worth checking
+                if (!this.policy.IsAllowed(localPath))
                 {
+                    Trace.TraceWarning(string.Format("Policy disallows index file {0} to be crawled", 
+                                                     index.AbsolutePath));
+
                     continue;
                 }
 
-                visited.Add(localPath);
+                if (isThreadSafe)
+                {
+                    indices.Enqueue(index);
+                }
+                else
+                {
+                    lock (indices)
+                    {
+                        indices.Enqueue(index);
+                    }
+                }
+            }
+
+            // Regular urls
+            foreach (var regular in regularUrls)
+            {
+                var localPath = regular.LocalPath;
 
                 if (!this.policy.IsAllowed(localPath))
                 {
-                    Trace.TraceWarning(string.Format("Policy disallows to crawl {0} ", sitemap.AbsolutePath));
+                    Trace.TraceWarning(string.Format("Policy disallows {0} to be crawled", 
+                                                     regular.AbsolutePath));
+
                     continue;
                 }
 
-                // Profile: maybe use local path instead of url everywhere - should be more efficient
-
-                var nextUrls = this.DownloadAndParse(sitemap);
-                var sitemapUrls = nextUrls[0];
-                var regularUrls = nextUrls[1];
-
-                foreach (var next in sitemapUrls)
+                if (isThreadSafe)
                 {
-                    queue.Enqueue(next);
+                    urls.Add(regular);
                 }
-
-                pagesToScrape.UnionWith(regularUrls);
+                else
+                {
+                    lock (urls)
+                    {
+                        urls.Add(regular);
+                    }
+                }
             }
 
-            return pagesToScrape;
+            if (isThreadSafe)
+            {
+                this.discoveredUrls += next[1].Count;
+            }
+            else
+            {
+                Interlocked.Add(ref this.discoveredUrls, next[1].Count);
+            }
         }
 
-        private HashSet<Uri> RetrieveUsingSitemapParallel(Uri sitemapRoot)
+        private HashSet<Uri> RetrieveUsingSitemap(Uri sitemapIndex)
         {
-            var pagesToScrape = new HashSet<Uri>();
+            var urls = new HashSet<Uri>();
+
+            var visited = new HashSet<string>();
+
+            var sitemapIndices = new Queue<Uri>();
+            sitemapIndices.Enqueue(sitemapIndex);
+
+            while (sitemapIndices.Count != 0)
+            {
+                var currentIndex = sitemapIndices.Dequeue();
+
+                var indexLocalPath = currentIndex.LocalPath;
+                if (visited.Contains(indexLocalPath))
+                {
+                    continue;
+                }
+                visited.Add(indexLocalPath);
+
+                var next = this.DownloadAndParse(currentIndex);
+
+                this.AddNext(sitemapIndices, urls, next, true);
+            }
+
+            return urls;
+        }
+
+        private HashSet<Uri> RetrieveUsingSitemapParallel(Uri sitemapindex)
+        {
+            var urls = new HashSet<Uri>();
 
             var visited = new HashSet<string>();
 
@@ -207,57 +265,37 @@ namespace WebCrawler
             // Refactor some sort of a blocking queue is preferrable but need to figure out 
             // proper producer consumer and parallel bfs with the blocking queue in this case ...
 
-            var level = new List<Uri>();
-            level.Add(sitemapRoot);
+            var sitemapIndices = new Queue<Uri>();
+            sitemapIndices.Enqueue(sitemapindex);
 
-            while (level.Count != 0)
+            while (sitemapIndices.Count != 0)
             {
-                var nextLevel = new ConcurrentBag<Uri>();
+                var nextLevelIndices = new Queue<Uri>();
 
-                Parallel.ForEach(level, (Uri url) => 
+                Parallel.ForEach(sitemapIndices, (Uri currentIndex) => 
                 {
-                    var localPath = url.LocalPath;
+                    var indexLocalPath = currentIndex.LocalPath;
                     
                     lock (visited)
                     {
-                        if (visited.Contains(localPath))
+                        if (visited.Contains(indexLocalPath))
                         {
                             return;
                         }
 
-                        visited.Add(localPath);
+                        visited.Add(indexLocalPath);
                     }
-
-                    lock (this.policy)
-                    {
-                        if (!this.policy.IsAllowed(localPath))
-                        {
-                            Trace.TraceWarning(string.Format("Policy disallows to crawl {0} ", url.AbsolutePath));
-                            return;
-                        }
-                    }
-
-                    // Profile: maybe use local path instead of url everywhere - should be more efficient
                     
-                    var nextUrls = this.DownloadAndParse(url);
-                    var sitemapUrls = nextUrls[0];
-                    var regularUrls = nextUrls[1];
+                    var next = this.DownloadAndParse(currentIndex);
 
-                    foreach (var next in sitemapUrls)
-                    {
-                        nextLevel.Add(next);
-                    }
+                    this.AddNext(nextLevelIndices, urls, next, false);
 
-                    lock (pagesToScrape)
-                    {
-                        pagesToScrape.UnionWith(regularUrls);
-                    }
                 }); // Completes when all urls from the same levels are processed
 
-                level = nextLevel.ToList();
+                sitemapIndices = nextLevelIndices;
             }
 
-            return pagesToScrape;
+            return urls;
         }
 
         /// <summary>Collects links to host pages which could be scraped.</summary>
@@ -335,7 +373,9 @@ namespace WebCrawler
             this.WriteToFile();
         }
 
-        public HashSet<Uri> RawUrls { get { return this.urls; } }
+        public int DiscoveredUrls {get { return this.discoveredUrls; }}
+
+        public HashSet<Uri> Urls { get { return this.urls; } }
 
         public List<Uri> AllResources
         {
