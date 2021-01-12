@@ -233,18 +233,23 @@ public partial class Graph
             throw new ArgumentNullException();
         }
 
+        // 1) Graph
         File.Delete(graphFile);
         using (var writer = new StreamWriter(graphFile))
         {
             foreach (var kvp in this.graph)
             {
+                writer.WriteLine("Host={0} Time={1}", kvp.Key, kvp.Value.DiscoveryTime);
+                writer.WriteLine("Links:");
+
                 foreach (var child in kvp.Value.Edges)
                 {
-                    writer.WriteLine("{0}: {1}, {2}", kvp.Key, child.Child, child.Weight);
+                    writer.WriteLine("  {0} {1}", child.Child, child.Weight);
                 }
             }
         }
 
+        // 2) Database
         if (!this.IsPersistent)
         {
             // Database disabled

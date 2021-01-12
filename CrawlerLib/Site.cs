@@ -11,6 +11,15 @@ namespace WebCrawler
         /// <summary>Needed for serialization.</summary>
         public CrawlerConfiguration() { }
 
+        /// <summary>A value indicating whether to logging to text file enabled or not.</summary>
+        public bool EnableLog { get; set; }
+
+        /// <summary>Gets or sets full path to the output folder.</summary>
+        public string OutputPath { get; set; }
+
+        /// <summary>Gets or sets full path to the log file.</summary>
+        public string LogFilePath { get; set; }
+
         public bool SaveRobotsFile { get; set; }
 
         public bool SaveSitemapFiles { get; set; }
@@ -77,16 +86,11 @@ namespace WebCrawler
         /// <summary>Gets or sets number of pages to be scraped.</summary>
         public int UrlsToScrape { get; set; }
 
-        public Site(Uri url, string path, CrawlerConfiguration configuration)
+        public Site(Uri url, CrawlerConfiguration configuration)
         {
             if (url == null)
             {
                 throw new ArgumentException("siteUrl");
-            }
-
-            if (path == null)
-            {
-                throw new ArgumentNullException("path");
             }
 
             if (configuration == null)
@@ -95,15 +99,15 @@ namespace WebCrawler
             }
 
             this.Url = url;
+            this.Configuration = configuration;
 
-            this.Path = System.IO.Path.Combine(path, this.Url.Host);
+            this.Path = System.IO.Path.Combine(this.Configuration.OutputPath, this.Url.Host);
             if (Directory.Exists(this.Path))
             {
-                Directory.Delete(this.Path);
+                Directory.Delete(this.Path, true);
             }
             Directory.CreateDirectory(this.Path);
 
-            this.Configuration = configuration;
             this.RobotsPath = System.IO.Path.Combine(this.Path, "robots.txt");
             this.RobotsUrl = new Uri(this.Url + "robots.txt");
             this.GraphFile = System.IO.Path.Combine(this.Path, "graph.txt");

@@ -18,9 +18,6 @@ namespace WebCrawler
         /// <summary>Seed hosts.</summary>
         private Uri[] seeds = null;
 
-        /// <summary>Full path on disk where to save crawl products.</summary>
-        private string outputPath = null;
-
         /// <summary>Crawler graph discovered so far.</summary>
         private Graph graph = new Graph(true);
 
@@ -30,6 +27,27 @@ namespace WebCrawler
                                               RegexOptions.IgnoreCase);
 
         private CancellationToken cancellationToken;
+
+        private void Init()
+        {
+            // Creating output path if it does not exist
+            Directory.CreateDirectory(this.configuration.OutputPath);
+
+            if (!this.configuration.EnableLog)
+            {
+                return;
+            }
+
+            // Recreating log file on every run
+            if (File.Exists(this.configuration.LogFilePath))
+            {
+                File.Delete(this.configuration.LogFilePath);
+            }
+
+            Trace.Listeners.Add(new TextWriterTraceListener(this.configuration.LogFilePath, "CrawlerListener"));
+            Trace.AutoFlush = true;
+            Trace.TraceInformation(DateTime.UtcNow.ToString());
+        }
 
         private Uri GetHostUri(string href)
         {
@@ -137,7 +155,7 @@ namespace WebCrawler
 
             var task = Task.Run(() => scraper.Scrape(this.blockingQueue));
 
-            // scraper.DownloadHtmls() completes this loop
+            // scraper.Scrape() completes this loop
             while (!this.blockingQueue.IsCompleted)
             {
                 var htmlFile = this.blockingQueue.Take();
@@ -203,7 +221,7 @@ namespace WebCrawler
         /// <summary>Gets sites graph.</summary>
         public Graph CrawlerGraph { get {return this.graph; } }
 
-        public Crawler(CrawlerConfiguration configuration, Uri[] seeds, string outputPath, CancellationToken token)
+        public Crawler(CrawlerConfiguration configuration, Uri[] seeds, CancellationToken token)
         {
             if (configuration == null)
             {
@@ -215,15 +233,11 @@ namespace WebCrawler
                 throw new ArgumentException("seeds");
             }
 
-            if (!Directory.Exists(outputPath))
-            {
-                throw new ArgumentException("outputPath");
-            }
-
             this.configuration = configuration;
             this.seeds = seeds;
-            this.outputPath = outputPath;
             this.cancellationToken = token;
+
+            this.Init();
         }
 
         public void Crawl()
@@ -239,7 +253,7 @@ namespace WebCrawler
                     break;
                 }
 
-                var site = new Site(seed, this.outputPath, this.configuration);
+                var site = new Site(seed, this.configuration);
 
                 try
                 {
