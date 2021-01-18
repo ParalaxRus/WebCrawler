@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace WebCrawler
 {
@@ -40,9 +41,9 @@ public class HostDiscoveredArgs : EventArgs
 
     public DateTime DiscoveryTime { get; }
 
-    public object[] Attributes { get; }
+    public Dictionary<string, object> Attributes { get; }
 
-    public HostDiscoveredArgs(Uri host, DateTime time, object[] attributes) 
+    public HostDiscoveredArgs(Uri host, DateTime time, Dictionary<string, object> attributes) 
     { 
         if (host == null)
         {
@@ -111,7 +112,7 @@ public partial class Graph
 
     #region Host event
 
-    protected virtual void RaiseHostDiscoveredEvent(Uri host, DateTime time, object[] attributes)
+    protected virtual void RaiseHostDiscoveredEvent(Uri host, DateTime time, Dictionary<string, object> attributes)
     {
         if (this.HostDiscoveredEvent != null)
         {

@@ -19,3 +19,7 @@ Crawling steps:
 - Tries to retrieve crawl policy from the robots site if provided
 - To crawl a seed site it determines its structure according with the sitemap if any
 - Downloads htmls, parses them and retrieves references to another sites and updates graph
+
+Notes:
+ - To run test in VSC UI make sure that omnisharp project is crawler.sln 
+   (command pallete -> omnisharp -> select project)

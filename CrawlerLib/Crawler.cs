@@ -6,6 +6,9 @@ using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
+using System.Runtime.CompilerServices;
+
+[assembly:InternalsVisibleTo("CrawlerTests")]
 
 namespace WebCrawler
 {
@@ -18,8 +21,8 @@ namespace WebCrawler
         /// <summary>Seed hosts.</summary>
         private Uri[] seeds = null;
 
-        /// <summary>Crawler graph discovered so far.</summary>
-        private Graph graph = new Graph(true);
+        /// <summary>Hosts graph.</summary>
+        private Graph graph = new Graph();
 
         private BlockingCollection<string> blockingQueue = new BlockingCollection<string>();
 
@@ -129,12 +132,12 @@ namespace WebCrawler
 
         private void UpdateGraph(Uri parent, HashSet<Uri> children)
         {
-            this.graph.AddParent(parent);
+            this.graph.AddVertex(parent);
 
             // Updating database info
             foreach(var child in children)
             {
-                this.graph.AddChild(parent, child);
+                this.graph.AddEdge(parent, child);
             }
         }
 
@@ -215,9 +218,6 @@ namespace WebCrawler
             this.RaiseStatusEvent(string.Format("{0} sitemap obtained", site.Url.Host));
         }
 
-        /// <summary>Gets crawler data base object.</summary>
-        public DataBase CrawlerDataBase { get {return this.graph.CrawlDataBase; } }
-
         /// <summary>Gets sites graph.</summary>
         public Graph CrawlerGraph { get {return this.graph; } }
 
@@ -265,7 +265,7 @@ namespace WebCrawler
 
                     this.RetrieveSitemap(site, policy);
 
-                    if (this.graph.IsParent(seed))
+                    if (this.graph.IsVertex(seed))
                     {
                         Trace.TraceInformation(string.Format("Seed {0} has already been discovered", seed.Host));
 
@@ -274,7 +274,13 @@ namespace WebCrawler
                         continue;
                     }
 
-                    this.graph.AddParent(seed, policy.IsRobots, policy.IsSitemap);
+                    var attributes = new Dictionary<string, object>() 
+                    {
+                        { "robots", policy.IsRobots },
+                        { "sitemap", policy.IsSitemap }
+                    };
+
+                    this.graph.AddVertex(seed, attributes);
                 
                     this.Start(seed, site);
 
@@ -315,7 +321,7 @@ namespace WebCrawler
         /// <summary>Gets collection of sites connected to the specified host.</summary>
         public Uri[] GetConnections(Uri host)
         {
-            return this.graph.GetChildren(host);
+            return this.graph.GetEdges(host);
         }
     }
 }

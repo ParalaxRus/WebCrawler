@@ -11,142 +11,61 @@ namespace WebCrawler
 /// they've been discovered by crawler.</summary>
 public partial class Graph
 {
-    private class Edge
+    /// <summary>Graph table (vertex key - host, vertex value).</summary>
+    private Dictionary<Uri, Vertex> graph = new Dictionary<Uri, Vertex>();
+
+    /// <summary>Gets vertex value by key.</summary>
+    /// <remarks>Throws exception if vertex not found.</remarks>
+    private Vertex GetVertex(Uri key)
     {
-        public Uri Child { get; private set; }
-
-        public int Weight { get; set; }
-
-        public Edge(Uri child)
-        {
-            if (child == null)
-            {
-                throw new ArgumentNullException();
-            }
-
-            this.Child = child;
-            this.Weight = 1;
-        }
-
-        public override bool Equals(Object other)
-        {
-            var edge = other as Edge;
-            if (edge == null)
-            {
-                return false;
-            }
-            
-            return (this.Child == edge.Child);
-        }
-
-        public override int GetHashCode()
-        {
-            return this.Child.GetHashCode();
-        }
-    }
-
-    private class GraphValue
-    {
-        /// <summary>Gets vertex discovery time.</summary>
-        public DateTime DiscoveryTime { get; private set; }
-
-        /// <summary>Gets edges.</summary>
-        public HashSet<Edge> Edges { get; private set; }
-
-        public GraphValue()
-        {
-            this.DiscoveryTime = DateTime.UtcNow;
-            this.Edges = new HashSet<Edge>();
-        }
-    }
-
-    /// <summary>Graph object (vertex, edges).</summary>
-    private Dictionary<Uri, GraphValue> graph = new Dictionary<Uri, GraphValue>();
-
-    /// <summary>Vertex attributes.</summary>
-    private Dictionary<Uri, object[]> attributes = new Dictionary<Uri, object[]>();
-
-    // Maybe its not such a good idea to connect DB and graph ...
-    private DataBase dataBase = null;
-
-    public bool IsPersistent {get { return (this.dataBase != null); } }
-
-    public DataBase CrawlDataBase 
-    { 
-        get
-        {
-            if (this.dataBase == null)
-            {
-                throw new ApplicationException();
-            }
-
-            return this.dataBase;
-        }
-    }
-
-    public Graph(bool persistent)
-    {
-        if (persistent)
-        {
-            this.dataBase = new DataBase();
-        }
-    }
-
-    /// <summary>Checks whether graph contains specified parent vertex or not.</summary>
-    public bool IsParent(Uri parent)
-    {
-        return this.graph.ContainsKey(parent);
-    }
-
-    /// <summary>Adds parent if does not exist.</summary>
-    public bool AddParent(Uri parent, bool isRobots = false, bool isSitemap = false)
-    {
-        if (parent == null)
+        if (key == null)
         {
             throw new ArgumentNullException();
         }
 
-        if (this.IsParent(parent))
+        if (!this.graph.ContainsKey(key))
+        {
+            throw new ApplicationException(string.Format("Vertex {} does not exist", key.Host));
+        }
+
+        return this.graph[key];
+    }
+
+    /// <summary>Checks whether vertex with the specified key exists or not.</summary>
+    public bool IsVertex(Uri key)
+    {
+        return ( (key != null) && this.graph.ContainsKey(key) );
+    }
+
+    /// <summary>Adds parent if it does not exist.</summary>
+    public bool AddVertex(Uri key, Dictionary<string, object> attributes = null)
+    {
+        if (this.IsVertex(key))
         {
             return false;
         }
 
-        this.graph.Add(parent, new GraphValue());
-        this.attributes.Add(parent, new object[] { isRobots, isSitemap });
+        this.graph.Add(key, new Vertex(attributes));
 
-        if (this.IsPersistent)
-        {
-            this.dataBase.AddHost(parent.Host, isRobots, isSitemap);
-        }
-
-        this.RaiseHostDiscoveredEvent(parent, this.graph[parent].DiscoveryTime, this.attributes[parent]);
+        this.RaiseHostDiscoveredEvent(key, this.graph[key].DiscoveryTime, this.graph[key].Attributes);
         
         return true;
     }
 
-    /// <summary>Adds child.</summary>
-    /// <returns>True if new child has been successfully added otherwise 
-    /// increases existing child weight and return false.</returns>
-    public bool AddChild(Uri parent, Uri child)
+    /// <summary>Adds an edge between source and target nodes.</summary>
+    /// <returns>True if new link has been successfully added otherwise 
+    /// increases existing link weight and returns false.</returns>
+    /// <remarks>Source node must exist but target does not have to.</remarks>
+    public bool AddEdge(Uri source, Uri target)
     {
-        if (!this.IsParent(parent))
+        if (!this.IsVertex(source))
         {
-            throw new ArgumentException();
+            throw new ArgumentException(string.Format("Source vertex {} does not exist", source.Host));
         }
 
-        if (this.IsPersistent)
-        {
-            if (this.dataBase.GetHostRecord(child.Host) == null)
-            {
-                this.dataBase.AddHost(child.Host, false, false);
-            }
-            
-            this.dataBase.AddConnection(parent.Host, child.Host);
-        }
-        
-        var value = this.graph[parent];
+        var value = this.graph[source];
 
-        var newEdge = new Edge(child);
+        var newEdge = new Edge(target);
 
         Edge existingEdge = null;
         int weight = 1;
@@ -163,58 +82,54 @@ public partial class Graph
             value.Edges.Add(newEdge);
         }
 
-        this.RaiseConnectionDiscoveredEvent(parent, child, weight);
+        this.RaiseConnectionDiscoveredEvent(source, target, weight);
 
         return (value == null);
     }
 
-    public Uri[] GetChildren(Uri parent)
+    /// <summary>Marks vertex discovery field as completed.</summary>
+    public void MarkCompleted(Uri key)
     {
-        if (parent == null)
-        {
-            throw new ArgumentNullException();
-        }
+        var value = this.GetVertex(key);
+        value.Completed = true;
+    }
 
-        if (!this.graph.ContainsKey(parent))
-        {
-            throw new ApplicationException(string.Format("Parent {} does not exist", parent.Host));
-        }
-
-        var value = this.graph[parent];
+    /// <summary>Gets vertex edges.</summary>
+    public Uri[] GetEdges(Uri key)
+    {
+        var value = this.GetVertex(key);
 
         return value.Edges.Select(edge => edge.Child).ToArray();
     }
 
-    public object[] GetParentAttributes(Uri parent)
+    /// <summary>Gets vertex attributes.</summary>
+    public Dictionary<string, object> GetAttributes(Uri key)
     {
-        if (parent == null)
-        {
-            throw new ArgumentNullException();
-        }
+        var value = this.GetVertex(key);
 
-        if (!this.graph.ContainsKey(parent))
-        {
-            throw new ApplicationException(string.Format("Parent {} does not exist", parent.Host));
-        }
-
-        return this.attributes[parent];
+        return value.Attributes;
     }
 
-    public int GetConnectionWeight(Uri parent, Uri child)
+    /// <summary>Gets vertex discovery completion flag.</summary>
+    public bool GetCompleted(Uri key)
     {
-        if (!this.graph.ContainsKey(parent))
-        {
-            throw new ArgumentException("parent");
-        }
+        var value = this.GetVertex(key);
 
-        var value = this.graph[parent];
+        return value.Completed;
+    }
 
-        var lookup = new Edge(child);
+    /// <summary>Gets edge weight.</summary>
+    /// <remarks>Source node must exist but target does not have to.</remarks>
+    public int GetEdgeWeight(Uri source, Uri target)
+    {
+        var value = this.GetVertex(source);
+
+        var lookup = new Edge(target);
 
         Edge existingEdge = null;
         if (!value.Edges.TryGetValue(lookup, out existingEdge))
         {
-            throw new ArgumentException("child");
+            throw new ArgumentException("edge");
         }
 
         return existingEdge.Weight;
@@ -233,13 +148,12 @@ public partial class Graph
             throw new ArgumentNullException();
         }
 
-        // 1) Graph
         File.Delete(graphFile);
         using (var writer = new StreamWriter(graphFile))
         {
             foreach (var kvp in this.graph)
             {
-                writer.WriteLine("Host={0} Time={1}", kvp.Key, kvp.Value.DiscoveryTime);
+                writer.WriteLine("Host={0} ", kvp.Key, kvp.Value.Serialize());
                 writer.WriteLine("Links:");
 
                 foreach (var child in kvp.Value.Edges)
@@ -248,16 +162,6 @@ public partial class Graph
                 }
             }
         }
-
-        // 2) Database
-        if (!this.IsPersistent)
-        {
-            // Database disabled
-            return;
-        }
-
-        File.Delete(databaseFile);
-        this.dataBase.Serialize(databaseFile);
     }
 }
 

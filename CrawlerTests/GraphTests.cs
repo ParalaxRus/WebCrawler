@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -8,89 +9,75 @@ namespace WebCrawler
     public class GraphTests
     {
         [TestMethod]
-        public void CreateNonPersistentGraphShouldReturnIsPersistentFalseAndThrowApplicationException()
-        {
-            var graph = new Graph(false);
-
-            Assert.IsFalse(graph.IsPersistent);
-
-            Action action = () => 
-            {
-                var db = graph.CrawlDataBase;
-            };
-
-            Assert.ThrowsException<ApplicationException>(action);
-        }
-
-        [TestMethod]
-        public void CreatePersistentGraphShouldReturnIsPersistentTrueAndNotNullDatabase()
-        {
-            var graph = new Graph(true);
-
-            Assert.IsNotNull(graph.CrawlDataBase);
-            Assert.IsTrue(graph.IsPersistent);
-        }
-
-        [TestMethod]
         public void AddParentSecondTimeShouldNotModifyItAndReturnFalse()
         {
-            var graph = new Graph(true);
+            var graph = new Graph();
 
             var parent1 = new Uri("http://www.parent.com");
-            Assert.IsTrue(graph.AddParent(parent1, true, true));
+            var attributes1 = new Dictionary<string, object>() 
+            {
+                { "robots", true},
+                { "sitemap", true}
+            };
+            Assert.IsTrue(graph.AddVertex(parent1, attributes1));
 
             var parent2 = new Uri("http://www.parent.com");
-            Assert.IsFalse(graph.AddParent(parent2, false, false));
+            var attributes2 = new Dictionary<string, object>() 
+            {
+                { "robots", false },
+                { "sitemap", false }
+            };
+            Assert.IsFalse(graph.AddVertex(parent2, attributes2));
 
-            var attributes = graph.GetParentAttributes(parent2);
-            Assert.IsTrue(attributes.SequenceEqual(new object[] {true, true}));
+            var actualAttributes = graph.GetAttributes(parent2);
+            Assert.IsTrue(actualAttributes.SequenceEqual(attributes1));
         }
 
         [TestMethod]
         public void AddSameChildMultipleTimesShouldUpateEdgeWeight()
         {
-            var graph = new Graph(true);
+            var graph = new Graph();
 
             var parent = new Uri("http://www.parent.com");
             var child = new Uri("http://www.child.com");
-            graph.AddParent(parent);
-            graph.AddChild(parent, child);
+            graph.AddVertex(parent);
+            graph.AddEdge(parent, child);
 
             for (int i = 0; i < 3; ++i)
             {
-                graph.AddChild(new Uri("http://www.parent.com"), new Uri("http://www.child.com"));
+                graph.AddEdge(new Uri("http://www.parent.com"), new Uri("http://www.child.com"));
             }
             
-            int weight = graph.GetConnectionWeight(parent, child);
+            int weight = graph.GetEdgeWeight(parent, child);
             Assert.AreEqual(weight, 4);
         }
 
         [TestMethod]
         public void AddChildShouldNotModifyParents()
         {
-            var graph = new Graph(true);
+            var graph = new Graph();
 
             var parent = new Uri("http://www.parent.com");
-            graph.AddParent(parent);
+            graph.AddVertex(parent);
 
             var child = new Uri("http://www.child.com");
-            graph.AddChild(parent, child);
+            graph.AddEdge(parent, child);
 
-            Assert.IsFalse(graph.IsParent(child));
+            Assert.IsFalse(graph.IsVertex(child));
         }
 
         [TestMethod]
         public void AddParentAsAChildShouldSuccessfullyAddIt()
         {
-            var graph = new Graph(true);
+            var graph = new Graph();
 
             var parent = new Uri("http://www.parent.com");
-            graph.AddParent(parent);
+            graph.AddVertex(parent);
 
             var child = new Uri("http://www.child.com");
-            graph.AddChild(parent, child);
+            graph.AddEdge(parent, child);
 
-            Assert.IsFalse(graph.IsParent(child));
+            Assert.IsFalse(graph.IsVertex(child));
         }
     }
 }
