@@ -24,25 +24,25 @@ namespace WebCrawler
         [TestMethod]
         public void CtorWithAttributesShouldSetAttributes()
         {
-            var attributes = new Dictionary<string, object>() 
+            var attributes = new Dictionary<string, string>() 
             {
-                { "robots", true},
-                { "sitemap", true}
+                { "robots", true.ToString()},
+                { "sitemap", true.ToString()}
             };
             var vertex = new Vertex(attributes);
 
             Assert.IsTrue(attributes.SequenceEqual(vertex.Attributes));
-            Assert.IsTrue((bool)attributes["robots"]);
-            Assert.IsTrue((bool)attributes["sitemap"]);
+            Assert.AreEqual(attributes["robots"], "True");
+            Assert.AreEqual(attributes["sitemap"], "True");
         }
 
         [TestMethod]
         public void SerializeAndDeserializeShouldProduceEqualObject()
         {
-            var attributes = new Dictionary<string, object>() 
+            var attributes = new Dictionary<string, string>() 
             {
-                { "robots", true },
-                { "sitemap", false }
+                { "robots", true.ToString() },
+                { "sitemap", false.ToString() }
             };
             var vertex = new Vertex(attributes);
             vertex.Completed = true;

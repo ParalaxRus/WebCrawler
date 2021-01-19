@@ -14,18 +14,18 @@ namespace WebCrawler
             var graph = new Graph();
 
             var parent1 = new Uri("http://www.parent.com");
-            var attributes1 = new Dictionary<string, object>() 
+            var attributes1 = new Dictionary<string, string>() 
             {
-                { "robots", true},
-                { "sitemap", true}
+                { "robots", true.ToString()},
+                { "sitemap", true.ToString()}
             };
             Assert.IsTrue(graph.AddVertex(parent1, attributes1));
 
             var parent2 = new Uri("http://www.parent.com");
-            var attributes2 = new Dictionary<string, object>() 
+            var attributes2 = new Dictionary<string, string>() 
             {
-                { "robots", false },
-                { "sitemap", false }
+                { "robots", false.ToString() },
+                { "sitemap", false.ToString() }
             };
             Assert.IsFalse(graph.AddVertex(parent2, attributes2));
 

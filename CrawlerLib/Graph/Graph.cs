@@ -38,7 +38,7 @@ public partial class Graph
     }
 
     /// <summary>Adds parent if it does not exist.</summary>
-    public bool AddVertex(Uri key, Dictionary<string, object> attributes = null)
+    public bool AddVertex(Uri key, Dictionary<string, string> attributes = null)
     {
         if (this.IsVertex(key))
         {
@@ -103,7 +103,7 @@ public partial class Graph
     }
 
     /// <summary>Gets vertex attributes.</summary>
-    public Dictionary<string, object> GetAttributes(Uri key)
+    public Dictionary<string, string> GetAttributes(Uri key)
     {
         var value = this.GetVertex(key);
 

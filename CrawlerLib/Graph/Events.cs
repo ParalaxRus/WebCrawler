@@ -41,9 +41,9 @@ public class HostDiscoveredArgs : EventArgs
 
     public DateTime DiscoveryTime { get; }
 
-    public Dictionary<string, object> Attributes { get; }
+    public Dictionary<string, string> Attributes { get; }
 
-    public HostDiscoveredArgs(Uri host, DateTime time, Dictionary<string, object> attributes) 
+    public HostDiscoveredArgs(Uri host, DateTime time, Dictionary<string, string> attributes) 
     { 
         if (host == null)
         {
@@ -112,7 +112,8 @@ public partial class Graph
 
     #region Host event
 
-    protected virtual void RaiseHostDiscoveredEvent(Uri host, DateTime time, Dictionary<string, object> attributes)
+    protected virtual void RaiseHostDiscoveredEvent(
+        Uri host, DateTime time, Dictionary<string, string> attributes)
     {
         if (this.HostDiscoveredEvent != null)
         {

@@ -274,10 +274,10 @@ namespace WebCrawler
                         continue;
                     }
 
-                    var attributes = new Dictionary<string, object>() 
+                    var attributes = new Dictionary<string, string>() 
                     {
-                        { "robots", policy.IsRobots },
-                        { "sitemap", policy.IsSitemap }
+                        { "robots", policy.IsRobots.ToString() },
+                        { "sitemap", policy.IsSitemap.ToString() }
                     };
 
                     this.graph.AddVertex(seed, attributes);

@@ -16,27 +16,28 @@ internal class Vertex
     /// <summary>Gets or sets vertex discovery completion value.</summary>
     public bool Completed { get; set; }
 
-    /// <summary>Gets edge count.</summary>
-    public int EdgeCount { get { return this.Edges.Count; } }
-
     /// <summary>Gets attributes.</summary>
-    public Dictionary<string, object> Attributes { get; private set; }    
+    public Dictionary<string, string> Attributes { get; private set; }
 
     /// <summary>Gets edges.</summary>
     public HashSet<Edge> Edges { get; private set; }
 
-    public Vertex(Dictionary<string, object> attributes)
-    {
-        this.DiscoveryTime = DateTime.UtcNow;
-        this.Completed = false;
-        this.Attributes = attributes;
-        this.Edges = new HashSet<Edge>();
-    }
+    /// <summary>Gets edge count.</summary>
+    [JsonIgnore]
+    public int EdgeCount { get { return this.Edges.Count; } }
 
     [JsonConstructor]
-    public Vertex(Dictionary<string, object> attributes, HashSet<Edge> edges) : this(attributes)
+    public Vertex(DateTime DiscoveryTime, bool Completed, Dictionary<string, string> Attributes, HashSet<Edge> Edges)
     {
-        this.Edges = edges;
+        this.DiscoveryTime = DiscoveryTime;
+        this.Completed = Completed;
+        this.Attributes = Attributes;
+        this.Edges = Edges;
+    }
+
+    public Vertex(Dictionary<string, string> attributes) 
+        : this(DateTime.UtcNow, false, attributes, new HashSet<Edge>())
+    {
     }
 
     public bool IsEqual(Vertex vertex)
@@ -53,7 +54,8 @@ internal class Vertex
             return false;
         }
 
-        if (!vertex.Attributes.SequenceEqual(this.Attributes))
+        var res = vertex.Attributes.Except(this.Attributes).ToList();
+        if (vertex.Attributes.Except(this.Attributes).Any())
         {
             return false;
         }
