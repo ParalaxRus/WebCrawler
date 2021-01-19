@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace WebCrawler
 {
@@ -135,24 +137,31 @@ public partial class Graph
         return existingEdge.Weight;
     }
 
-    /// <summary>Saves graph and its database representation (if enabled) to the disk.</summary>
-    public void Serialize(string graphFile, string databaseFile)
+    /// <summary>Serializes graph to the specified file.</summary>
+    public void Serialize(string file)
     {
-        if (graphFile == null)
+        if (file == null)
         {
             throw new ArgumentNullException();
         }
 
-        if (databaseFile == null)
-        {
-            throw new ArgumentNullException();
-        }
+        File.Delete(file);
 
-        File.Delete(graphFile);
-        using (var writer = new StreamWriter(graphFile))
+        using (var stream = File.OpenWrite(file))
+        {
+            var options = new JsonWriterOptions { Indented = true };
+            using (var writer = new Utf8JsonWriter(stream,  options))
+            {
+                JsonSerializer.Serialize<Graph>(writer, this);
+            }
+        }
+        
+
+        /*using (var writer = new StreamWriter(file))
         {
             foreach (var kvp in this.graph)
             {
+                kvp.Value.Serialize();
                 writer.WriteLine("Host={0} ", kvp.Key, kvp.Value.Serialize());
                 writer.WriteLine("Links:");
 
@@ -161,7 +170,7 @@ public partial class Graph
                     writer.WriteLine("  {0} {1}", child.Child, child.Weight);
                 }
             }
-        }
+        }*/
     }
 }
 

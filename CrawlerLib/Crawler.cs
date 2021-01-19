@@ -301,7 +301,7 @@ namespace WebCrawler
 
                     if (site.Configuration.SerializeGraph)
                     {
-                        this.graph.Serialize(site.GraphFile, site.SiteDbFile);
+                        this.graph.Serialize(site.GraphFile);
                     }
 
                     // Deleting empty paths for downloaded html files
