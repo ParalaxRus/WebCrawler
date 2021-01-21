@@ -140,9 +140,8 @@ namespace WebCrawler
                 graph.Serialize(file);
 
                 var deserializedGraph = Graph.Deserialize(file);
-
-                // Need to create iterator over graph and compare or add equals for two graphs ...
-                Assert.IsTrue(deserializedGraph.Equals(graph));
+                
+                Assert.AreEqual(deserializedGraph, graph);
             }
             finally
             {

@@ -64,7 +64,7 @@ namespace WebCrawler
 
             var deserializedVertex = Vertex.Deserialize(serializedVertex);
 
-            Assert.IsTrue(vertex.IsEqual(deserializedVertex));
+            Assert.AreEqual(vertex, deserializedVertex);
         }
     }
 }

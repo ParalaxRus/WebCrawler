@@ -39,23 +39,44 @@ internal class Vertex
         : this(DateTime.UtcNow, false, attributes, new HashSet<Edge>())
     {
     }
-
-    public bool IsEqual(Vertex vertex)
+ 
+    public string Serialize(bool pretty = false)
     {
+        JsonSerializerOptions options = null;
+        if (pretty)
+        {
+            options = new JsonSerializerOptions()
+            {
+                WriteIndented = true,
+            };
+        }
+
+        return JsonSerializer.Serialize(this, options);
+    }
+
+    public static Vertex Deserialize(string value)
+    {
+        return JsonSerializer.Deserialize<Vertex>(value);
+    }
+
+    #region Equality overrides
+
+    public override bool Equals(object other)
+    {
+        var vertex = other as Vertex;
         if (vertex == null)
         {
             return false;
         }
-
+        
         if ( (vertex.DiscoveryTime != this.DiscoveryTime) || 
-             (vertex.EdgeCount != this.EdgeCount) || 
-             (vertex.Completed != this.Completed) )
+              (vertex.EdgeCount != this.EdgeCount) || 
+              (vertex.Completed != this.Completed) )
         {
             return false;
         }
 
-        var res = vertex.Attributes.Except(this.Attributes).ToList();
-        if (vertex.Attributes.Except(this.Attributes).Any())
+        if (!vertex.Attributes.SequenceEqual(this.Attributes))
         {
             return false;
         }
@@ -76,25 +97,16 @@ internal class Vertex
 
         return true;
     }
-    
-    public string Serialize(bool pretty = false)
-    {
-        JsonSerializerOptions options = null;
-        if (pretty)
-        {
-            options = new JsonSerializerOptions()
-            {
-                WriteIndented = true,
-            };
-        }
 
-        return JsonSerializer.Serialize(this, options);
+    public override int GetHashCode()
+    {
+       return ( this.DiscoveryTime.GetHashCode() ^ 
+                this.Completed.GetHashCode() ^ 
+                this.Attributes.GetHashCode() ^ 
+                this.Edges.GetHashCode() );
     }
 
-    public static Vertex Deserialize(string value)
-    {
-        return JsonSerializer.Deserialize<Vertex>(value);
-    }
+    #endregion
 }
 
 }

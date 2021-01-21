@@ -176,6 +176,26 @@ public partial class Graph
 
         return graph;
     }
+
+    #region Equality overrides
+
+    public override bool Equals(object obj)
+    {
+        var other = obj as Graph;
+        if (other == null)
+        {
+            return false;
+        }
+
+        return this.graph.SequenceEqual(other.graph);
+    }
+
+    public override int GetHashCode()
+    {
+       return this.graph.GetHashCode();
+    }
+
+    #endregion
 }
 
 }
