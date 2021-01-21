@@ -135,8 +135,19 @@ namespace WebCrawler
             }
 
             var file = Path.Join(Directory.GetCurrentDirectory(), Guid.NewGuid().ToString());
+            try
+            {
+                graph.Serialize(file);
 
-            graph.Serialize(file);
+                var deserializedGraph = Graph.Deserialize(file);
+
+                // Need to create iterator over graph and compare or add equals for two graphs ...
+                Assert.IsTrue(deserializedGraph.Equals(graph));
+            }
+            finally
+            {
+                File.Delete(file);
+            }
         }
     }
 }

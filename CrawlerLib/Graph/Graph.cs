@@ -3,7 +3,6 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace WebCrawler
 {
@@ -14,7 +13,7 @@ namespace WebCrawler
 public partial class Graph
 {
     /// <summary>Graph table (vertex key - host, vertex value).</summary>
-    private Dictionary<Uri, Vertex> graph = new Dictionary<Uri, Vertex>();
+    private Dictionary<string, Vertex> graph = new Dictionary<string, Vertex>();
 
     /// <summary>Gets vertex value by key.</summary>
     /// <remarks>Throws exception if vertex not found.</remarks>
@@ -25,18 +24,18 @@ public partial class Graph
             throw new ArgumentNullException();
         }
 
-        if (!this.graph.ContainsKey(key))
+        if (!this.graph.ContainsKey(key.Host))
         {
             throw new ApplicationException(string.Format("Vertex {} does not exist", key.Host));
         }
 
-        return this.graph[key];
+        return this.graph[key.Host];
     }
 
     /// <summary>Checks whether vertex with the specified key exists or not.</summary>
     public bool IsVertex(Uri key)
     {
-        return ( (key != null) && this.graph.ContainsKey(key) );
+        return ( (key != null) && this.graph.ContainsKey(key.Host) );
     }
 
     /// <summary>Adds parent if it does not exist.</summary>
@@ -47,9 +46,9 @@ public partial class Graph
             return false;
         }
 
-        this.graph.Add(key, new Vertex(attributes));
+        this.graph.Add(key.Host, new Vertex(attributes));
 
-        this.RaiseHostDiscoveredEvent(key, this.graph[key].DiscoveryTime, this.graph[key].Attributes);
+        this.RaiseHostDiscoveredEvent(key, this.graph[key.Host].DiscoveryTime, this.graph[key.Host].Attributes);
         
         return true;
     }
@@ -65,7 +64,7 @@ public partial class Graph
             throw new ArgumentException(string.Format("Source vertex {} does not exist", source.Host));
         }
 
-        var value = this.graph[source];
+        var value = this.graph[source.Host];
 
         var newEdge = new Edge(target);
 
@@ -152,25 +151,30 @@ public partial class Graph
             var options = new JsonWriterOptions { Indented = true };
             using (var writer = new Utf8JsonWriter(stream,  options))
             {
-                JsonSerializer.Serialize<Graph>(writer, this);
+                JsonSerializer.Serialize<Dictionary<string, Vertex>>(writer, this.graph);
             }
         }
-        
+    }
 
-        /*using (var writer = new StreamWriter(file))
+    /// <summary>Deserializes graph from the specified file.</summary>
+    public static Graph Deserialize(string file)
+    {
+        if (!File.Exists(file))
         {
-            foreach (var kvp in this.graph)
-            {
-                kvp.Value.Serialize();
-                writer.WriteLine("Host={0} ", kvp.Key, kvp.Value.Serialize());
-                writer.WriteLine("Links:");
+            throw new ArgumentException(string.Format("File {0} does not exist", file));
+        }
 
-                foreach (var child in kvp.Value.Edges)
-                {
-                    writer.WriteLine("  {0} {1}", child.Child, child.Weight);
-                }
-            }
-        }*/
+        var graph = new Graph();
+
+        using (var stream = File.OpenRead(file))
+        {
+            var task = JsonSerializer.DeserializeAsync<Dictionary<string, Vertex>>(stream).AsTask();
+            task.Wait();
+
+            graph.graph = task.Result;
+        }
+
+        return graph;
     }
 }
 
