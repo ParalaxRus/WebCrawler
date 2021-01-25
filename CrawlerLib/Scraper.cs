@@ -22,10 +22,11 @@ namespace WebCrawler
 
         Dictionary<int, Uri> pagesToScrape = null;
 
-        private Dictionary<int, Uri> GetHtmlUrls()
+        /// <summary>Gets links to html resources only.</summary>
+        private Dictionary<int, Uri> GetHtmlLinks()
         {
             // Dictionary is needed:
-            // 1) To avoid delicates between htmlResources and (root + index.html)
+            // 1) To avoid duplicates between htmlResources and (root + index.html)
             // 2) Simplifies and increases performance of Take() method
             var htmlMap = new Dictionary<int, Uri>();
 
@@ -137,7 +138,7 @@ namespace WebCrawler
         public Tuple<int, int> DiscoverLinks()
         {
             // Generating collection of possible html links
-            this.pagesToScrape = this.GetHtmlUrls();
+            this.pagesToScrape = this.GetHtmlLinks();
 
             return new Tuple<int, int>(this.pagesToScrape.Count, this.sitemap.DiscoveredUrls);
         }

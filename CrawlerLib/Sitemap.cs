@@ -106,7 +106,7 @@ namespace WebCrawler
                 foreach (XmlNode node in doc.GetElementsByTagName("url"))
                 {
                     var uri = new Uri(node["loc"].InnerText);
-                    if (uri.LocalPath != "/") // root url
+                    if ((uri.Scheme == "https") && (uri.LocalPath != "/")) // https and not root url
                     {
                         urls.Add(uri);
                     }
@@ -118,7 +118,8 @@ namespace WebCrawler
             }
         }
 
-        /// <summary>Download sitemap file, parses it and extracts urls to scrape and/or another sitemap files.</summary>
+        /// <summary>Download sitemap file, parses it and extracts https links 
+        /// to scrape and/or another sitemap files.</summary>
         private HashSet<Uri>[] DownloadAndParse(Uri sitemap)
         {
             // Sitemap file can be index file ir sitemap file. Index file contains uri of another

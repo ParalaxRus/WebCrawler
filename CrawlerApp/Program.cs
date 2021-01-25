@@ -9,7 +9,7 @@ namespace WebCrawler
     {
         public static void Main(string[] args)
         {
-            var configuration = new CrawlerConfiguration()
+            var configuration = new Configuration()
             {
                 EnableLog = true,
                 OutputPath = Path.Join(Directory.GetCurrentDirectory(), "output"),

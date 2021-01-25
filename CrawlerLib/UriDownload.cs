@@ -10,14 +10,28 @@ namespace WebCrawler
     {
         private async Task<HttpWebResponse> IssueGetAsync(Uri uri)
         {
-            var response = await Task.Run(() => 
+            var task = await Task.Run(() => 
             {
-                var request = (HttpWebRequest)WebRequest.Create(uri);
+                HttpWebResponse response = null;
+                try
+                {
+                    var request = (HttpWebRequest)WebRequest.Create(uri);
 
-                return (HttpWebResponse)request.GetResponse();
+                    response = (HttpWebResponse)request.GetResponse();
+                }
+                catch (WebException exception)
+                {
+                    Trace.TraceError(string.Format("Failed to get {0}. Exception: {1}"), 
+                                                   uri.LocalPath, 
+                                                   exception.Message);
+
+                    response = (HttpWebResponse)exception.Response;
+                }
+
+                return response;
             });
 
-            return response;
+            return task;
         }
 
         private async Task<bool> WriteToFile(HttpWebResponse response, string file)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -27,7 +28,10 @@ internal class Vertex
     public int EdgeCount { get { return this.Edges.Count; } }
 
     [JsonConstructor]
-    public Vertex(DateTime DiscoveryTime, bool Completed, Dictionary<string, string> Attributes, HashSet<Edge> Edges)
+    public Vertex(DateTime                   DiscoveryTime, 
+                  bool                       Completed, 
+                  Dictionary<string, string> Attributes, 
+                  HashSet<Edge>              Edges)
     {
         this.DiscoveryTime = DiscoveryTime;
         this.Completed = Completed;
@@ -59,6 +63,37 @@ internal class Vertex
         return JsonSerializer.Deserialize<Vertex>(value);
     }
 
+    public void ToFile(string file, bool pretty = false)
+    {
+        string parent = Path.GetDirectoryName(file);
+        Directory.CreateDirectory(parent);
+
+        using (var stream = File.OpenWrite(file))
+        {
+            JsonWriterOptions options = new JsonWriterOptions();
+            if (pretty)
+            {
+                options.Indented = true;
+            }
+
+            using (var writer = new Utf8JsonWriter(stream,  options))
+            {
+                JsonSerializer.Serialize<Vertex>(writer, this);
+            }
+        }
+    }
+
+    public static Vertex FromFile(string file)
+    {
+        using (var stream = File.OpenRead(file))
+        {
+            var task = JsonSerializer.DeserializeAsync<Vertex>(stream).AsTask();
+            task.Wait();
+
+            return task.Result;
+        }
+    }
+
     #region Equality overrides
 
     public override bool Equals(object other)
@@ -69,7 +104,7 @@ internal class Vertex
             return false;
         }
         
-        if ( (vertex.DiscoveryTime != this.DiscoveryTime) || 
+        if (  (vertex.DiscoveryTime != this.DiscoveryTime) || 
               (vertex.EdgeCount != this.EdgeCount) || 
               (vertex.Completed != this.Completed) )
         {

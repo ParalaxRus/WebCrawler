@@ -32,10 +32,19 @@ public partial class Graph
         return this.graph[key.Host];
     }
 
+    /// <summary>Graph file name.</summary>
+    public const string GraphFileName = "graph.txt";
+
     /// <summary>Checks whether vertex with the specified key exists or not.</summary>
     public bool IsVertex(Uri key)
     {
         return ( (key != null) && this.graph.ContainsKey(key.Host) );
+    }
+
+    /// <summary>Gets collection of keys.</summary>
+    public List<string> GetVertices()
+    {
+        return this.graph.Keys.ToList();
     }
 
     /// <summary>Adds parent if it does not exist.</summary>
@@ -112,7 +121,7 @@ public partial class Graph
     }
 
     /// <summary>Gets vertex discovery completion flag.</summary>
-    public bool GetCompleted(Uri key)
+    public bool IsCompleted(Uri key)
     {
         var value = this.GetVertex(key);
 
@@ -159,11 +168,6 @@ public partial class Graph
     /// <summary>Deserializes graph from the specified file.</summary>
     public static Graph Deserialize(string file)
     {
-        if (!File.Exists(file))
-        {
-            throw new ArgumentException(string.Format("File {0} does not exist", file));
-        }
-
         var graph = new Graph();
 
         using (var stream = File.OpenRead(file))
@@ -172,6 +176,58 @@ public partial class Graph
             task.Wait();
 
             graph.graph = task.Result;
+        }
+
+        return graph;
+    }
+
+    /// <summary>Constructs graph structure on a disk where each vertex is saved to a 
+    /// separate file on disk with the corresponding file path.</summary>
+    public void Persist(string output)
+    {
+        // TO-DO: this deletes files related to existing graph on disk before creating a new one
+        // Methdod should be made more resilient
+
+        if (!Directory.Exists(output))
+        {
+            Directory.CreateDirectory(output);
+        }
+
+        foreach (var kvp in this.graph)
+        {
+            var vertexFile = Path.Join(output, kvp.Key, Graph.GraphFileName);
+
+            if (File.Exists(vertexFile))
+            {
+                File.Delete(vertexFile);
+            }
+
+            kvp.Value.ToFile(vertexFile);
+        }
+    }
+
+    /// <summary>Reconstructs graph from the specified folder structure.</summary>
+    public static Graph Reconstruct(string input)
+    {
+        var graph = new Graph();
+
+        // Top level folders should hold sites info
+        var folders = Directory.GetDirectories(input);
+        foreach (var folder in folders)
+        {
+            string vertexFile = Path.Join(folder, Graph.GraphFileName);
+            if (!File.Exists(vertexFile))
+            {
+                // Site has not been serialized yet
+                continue;
+            }
+           
+            var host = Path.GetFileName(Path.GetDirectoryName(vertexFile));           
+
+            Failes to deserialize however unit tests pass ?!
+            var vertex = Vertex.FromFile(vertexFile);
+
+            graph.graph.Add(host, vertex);
         }
 
         return graph;

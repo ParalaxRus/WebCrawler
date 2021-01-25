@@ -148,5 +148,73 @@ namespace WebCrawler
                 File.Delete(file);
             }
         }
+
+        [TestMethod]
+        public void PersistAndRecostructFromFileShouldProduceEqualObject()
+        {
+            var graph = new Graph();
+
+            // vertex1
+            var p1 = new Uri("http://www.source.com");
+            var attributes = new Dictionary<string, string>() 
+            {
+                { "robots", true.ToString() },
+                { "sitemap", true.ToString() }
+            };
+            graph.AddVertex(p1, attributes);
+
+            var edges = new Uri[]
+            {
+                new Uri("http://www.target1.com"),
+                new Uri("http://www.target2.com"),
+            };
+            for (int i = 0; i < 2; ++i)
+            {
+                graph.AddEdge(p1, edges[0]);
+            }
+            for (int i = 0; i < 3; ++i)
+            {
+                graph.AddEdge(p1, edges[1]);
+            }
+            graph.MarkCompleted(p1);
+
+            // vertex2
+            var p2 = new Uri("http://www.source1.com");
+            var attributes1 = new Dictionary<string, string>() 
+            {
+                { "robots", false.ToString() },
+                { "sitemap", false.ToString() }
+            };
+            graph.AddVertex(p2, attributes1);
+
+            var edges1 = new Uri[]
+            {
+                new Uri("http://www.target2.com"),
+                new Uri("http://www.target3.com"),
+                new Uri("http://www.target4.com"),
+            };
+            for (int i = 0; i < 3; ++i)
+            {
+                graph.AddEdge(p2, edges1[0]);
+            }
+            for (int i = 0; i < 2; ++i)
+            {
+                graph.AddEdge(p2, edges1[1]);
+            }
+
+            var output = Path.Join(Directory.GetCurrentDirectory(), Guid.NewGuid().ToString());
+            try
+            {
+                 graph.Persist(output);
+
+                var reconstructedGraph = Graph.Reconstruct(output);
+                
+                Assert.AreEqual(reconstructedGraph, graph);
+            }
+            finally
+            {
+                Directory.Delete(output, true);
+            }
+        }
     }
 }

@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Runtime.CompilerServices;
+using System.Linq;
 
 [assembly:InternalsVisibleTo("CrawlerTests")]
 
@@ -16,7 +17,7 @@ namespace WebCrawler
     public partial class Crawler
     {
         /// <summary>Crawler settings.</summary>
-        private CrawlerConfiguration configuration = null;
+        private Configuration configuration = null;
 
         /// <summary>Seed hosts.</summary>
         private Uri[] seeds = null;
@@ -218,10 +219,33 @@ namespace WebCrawler
             this.RaiseStatusEvent(string.Format("{0} sitemap obtained", site.Url.Host));
         }
 
+        /// <summary>Chooses seeds from user specified input and reconstructed graph.</summary>
+        private static HashSet<Uri> GetSeeds(Uri[] seeds, Graph graph)
+        {
+            var set = new HashSet<Uri>(seeds);
+
+            var persistedHosts = graph.GetVertices();
+            foreach (var host in persistedHosts)
+            {
+                var key = new Uri("https://" + host);
+                
+                if (!graph.IsCompleted(key))
+                {
+                    set.Add(key);
+                }
+                else
+                {
+                    set.Remove(key);
+                }
+            }
+
+            return set;
+        }
+
         /// <summary>Gets sites graph.</summary>
         public Graph CrawlerGraph { get {return this.graph; } }
 
-        public Crawler(CrawlerConfiguration configuration, Uri[] seeds, CancellationToken token)
+        public Crawler(Configuration configuration, Uri[] seeds, CancellationToken token)
         {
             if (configuration == null)
             {
@@ -234,7 +258,7 @@ namespace WebCrawler
             }
 
             this.configuration = configuration;
-            this.seeds = seeds;
+            this.seeds = seeds.Where(url => url.Scheme == "https").ToArray();
             this.cancellationToken = token;
 
             this.Init();
@@ -245,7 +269,11 @@ namespace WebCrawler
             this.RaiseStatusEvent("Crawling started");
             this.RaiseProgressEvent(0.0);
 
-            foreach (var seed in this.seeds)
+            this.graph = Graph.Reconstruct(this.configuration.OutputPath);
+
+            var nextSeeds = Crawler.GetSeeds(this.seeds, this.graph);
+
+            foreach (var seed in nextSeeds)
             {
                 if (this.cancellationToken.IsCancellationRequested)
                 {
@@ -283,6 +311,8 @@ namespace WebCrawler
                     this.graph.AddVertex(seed, attributes);
                 
                     this.Start(seed, site);
+
+                    this.graph.MarkCompleted(seed);
 
                     info = string.Format("Crawling {0} completed", seed.Host);
                     Trace.TraceInformation(info);

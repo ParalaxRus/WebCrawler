@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Text.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace WebCrawler
@@ -65,6 +65,44 @@ namespace WebCrawler
             var deserializedVertex = Vertex.Deserialize(serializedVertex);
 
             Assert.AreEqual(vertex, deserializedVertex);
+        }
+
+        [TestMethod]
+        public void SerializeToAndFromFileShouldProduceEqualObject()
+        {
+            var attributes = new Dictionary<string, string>() 
+            {
+                { "robots", true.ToString() },
+                { "sitemap", false.ToString() }
+            };
+            var vertex = new Vertex(attributes);
+            vertex.Completed = true;
+            var edges = new Edge[]
+            {
+                new Edge(new Uri("http://www.example.com"), 10),
+                new Edge(new Uri("http://www.example1.com"), 7)
+            };
+
+            foreach (var edge in edges)
+            {
+                vertex.Edges.Add(edge);
+            }
+
+            string file = Path.Join(Directory.GetCurrentDirectory(), Guid.NewGuid().ToString());
+            try
+            {
+                vertex.ToFile(file, true);
+
+                Assert.IsTrue(File.Exists(file));
+
+                var deserializedVertex = Vertex.FromFile(file);
+
+                Assert.AreEqual(vertex, deserializedVertex);
+            }
+            finally
+            {
+                File.Delete(file);
+            }
         }
     }
 }
