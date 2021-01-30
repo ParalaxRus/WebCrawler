@@ -9,6 +9,26 @@ namespace WebCrawler
     /// <summary>Web scraper downloads html files from the site using provided sitemap.</summary>
     internal class Scraper
     {
+        /// <summary>ScrapeSettings class.</summary>
+        public class Settings
+        {
+            /// <summary>Gets number of pages to scrape from each site.</summary>
+            public int Count { get; private set; }
+
+            /// <summary>Gets minimum delay interval in milleseconds between pages download.</summary>
+            public int MinDelay { get; private set; }
+
+            /// <summary>Gets maximum delay interval in milleseconds between pages download.</summary>
+            public int MaxDelay { get; private set; }
+
+            public Settings(int count = 12, int minDelayMs = 3, int maxDelayMs = 6)
+            {
+                this.Count = count;
+                this.MinDelay = minDelayMs;
+                this.MaxDelay = maxDelayMs;
+            }
+        }
+
         private Sitemap sitemap = null;
 
         private string htmlDownloadPath = null;
@@ -75,20 +95,20 @@ namespace WebCrawler
             return sample;
         }
 
-        private void SlowSequentialDownload(
-            Dictionary<int, Uri> htmlMap, int[] delayInterval, BlockingCollection<string> queue)
+        private void SlowSequentialDownload(Dictionary<int, Uri>       htmlMap, 
+                                            Settings                   settings, 
+                                            BlockingCollection<string> queue)
         {
             var random = new Random();
 
-            const int pagesToScrape = 12;
-            var samples = this.Take(htmlMap, pagesToScrape);
+            var samples = this.Take(htmlMap, settings.Count);
 
             for (int i = 0; (i < samples.Count) && !this.cancellationToken.IsCancellationRequested; ++i)
             {
                 var uri = samples[i];
 
-                // Sleeping until delay or cancel
-                var delay = random.Next(delayInterval[0], delayInterval[1] + 1);
+                // Sleeping until delay happens or user cancellation
+                var delay = random.Next(settings.MinDelay, settings.MaxDelay + 1);
                 bool isCancelled = this.cancellationToken.WaitHandle.WaitOne(delay * 1000);
                 if (isCancelled)
                 {
@@ -105,8 +125,8 @@ namespace WebCrawler
                 }
 
                 if (this.reportProgress != null)
-                {                   
-                    this.reportProgress((i + 1) / (double)pagesToScrape);
+                {
+                    this.reportProgress((i + 1) / (double)settings.Count);
                 }
             }
         }
@@ -144,7 +164,7 @@ namespace WebCrawler
         }
 
         /// <summary>Download and parse urls.</summary>
-        public void Scrape(BlockingCollection<string> queue)
+        public void Scrape(BlockingCollection<string> queue, Settings settings)
         {
             if (this.pagesToScrape == null)
             {
@@ -152,7 +172,7 @@ namespace WebCrawler
             }
 
             // Slowly and randomly downloading html pages in order not to be banned by the site
-            this.SlowSequentialDownload(this.pagesToScrape, new int[] { 3, 6 }, queue);
+            this.SlowSequentialDownload(this.pagesToScrape, settings, queue);
 
             // No more html links left for the current site
             queue.CompleteAdding();

@@ -14,8 +14,8 @@ internal class Vertex
     /// <summary>Gets discovery time.</summary>
     public DateTime DiscoveryTime { get; private set; }
 
-    /// <summary>Gets or sets vertex discovery completion value.</summary>
-    public bool Completed { get; set; }
+    /// <summary>Gets or sets vertex fully discovered value.</summary>
+    public bool Discovered { get; set; }
 
     /// <summary>Gets attributes.</summary>
     public Dictionary<string, string> Attributes { get; private set; }
@@ -29,12 +29,12 @@ internal class Vertex
 
     [JsonConstructor]
     public Vertex(DateTime                   DiscoveryTime, 
-                  bool                       Completed, 
+                  bool                       Discovered, 
                   Dictionary<string, string> Attributes, 
                   HashSet<Edge>              Edges)
     {
         this.DiscoveryTime = DiscoveryTime;
-        this.Completed = Completed;
+        this.Discovered = Discovered;
         this.Attributes = Attributes;
         this.Edges = Edges;
     }
@@ -106,7 +106,7 @@ internal class Vertex
         
         if (  (vertex.DiscoveryTime != this.DiscoveryTime) || 
               (vertex.EdgeCount != this.EdgeCount) || 
-              (vertex.Completed != this.Completed) )
+              (vertex.Discovered != this.Discovered) )
         {
             return false;
         }
@@ -136,7 +136,7 @@ internal class Vertex
     public override int GetHashCode()
     {
        return ( this.DiscoveryTime.GetHashCode() ^ 
-                this.Completed.GetHashCode() ^ 
+                this.Discovered.GetHashCode() ^ 
                 this.Attributes.GetHashCode() ^ 
                 this.Edges.GetHashCode() );
     }

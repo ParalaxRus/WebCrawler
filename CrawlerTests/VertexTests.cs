@@ -17,7 +17,7 @@ namespace WebCrawler
             TimeSpan diff = DateTime.UtcNow.Subtract(vertex.DiscoveryTime);
             Assert.IsTrue(diff < new TimeSpan(1, 0, 0));
             Assert.IsNull(vertex.Attributes);
-            Assert.IsFalse(vertex.Completed);
+            Assert.IsFalse(vertex.Discovered);
             Assert.AreEqual(vertex.EdgeCount, 0);
             Assert.AreEqual(vertex.Edges.Count, 0);
         }
@@ -46,7 +46,7 @@ namespace WebCrawler
                 { "sitemap", false.ToString() }
             };
             var vertex = new Vertex(attributes);
-            vertex.Completed = true;
+            vertex.Discovered = true;
             var edges = new Edge[]
             {
                 new Edge(new Uri("http://www.example.com"), 10),
@@ -76,7 +76,7 @@ namespace WebCrawler
                 { "sitemap", false.ToString() }
             };
             var vertex = new Vertex(attributes);
-            vertex.Completed = true;
+            vertex.Discovered = true;
             var edges = new Edge[]
             {
                 new Edge(new Uri("http://www.example.com"), 10),

@@ -64,7 +64,7 @@ namespace WebCrawler
             var child = new Uri("http://www.child.com");
             graph.AddEdge(parent, child);
 
-            Assert.IsFalse(graph.IsVertex(child));
+            Assert.IsFalse(graph.Exists(child));
         }
 
         [TestMethod]
@@ -78,7 +78,7 @@ namespace WebCrawler
             var child = new Uri("http://www.child.com");
             graph.AddEdge(parent, child);
 
-            Assert.IsFalse(graph.IsVertex(child));
+            Assert.IsFalse(graph.Exists(child));
         }
 
         [TestMethod]
@@ -108,7 +108,7 @@ namespace WebCrawler
             {
                 graph.AddEdge(p1, edges[1]);
             }
-            graph.MarkCompleted(p1);
+            graph.MarkAsDiscovered(p1);
 
             // vertex2
             var p2 = new Uri("http://www.source1.com");
@@ -176,7 +176,7 @@ namespace WebCrawler
             {
                 graph.AddEdge(p1, edges[1]);
             }
-            graph.MarkCompleted(p1);
+            graph.MarkAsDiscovered(p1);
 
             // vertex2
             var p2 = new Uri("http://www.source1.com");

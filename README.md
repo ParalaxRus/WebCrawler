@@ -27,3 +27,4 @@ Notes:
 
 To-Do:
  1) Figure out Uri scheme with graph issue (for now its restricted to https)
+ 2) Implement c# priority queue for seeds in crawler

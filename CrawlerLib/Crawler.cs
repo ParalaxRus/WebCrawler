@@ -84,7 +84,7 @@ namespace WebCrawler
                     try
                     {
                         Uri host = this.GetHostUri(href);
-                        if ((host != null) && !hosts.Contains(host))
+                        if ((host != null) && !hosts.Contains(host) && (host.Scheme == "https"))
                         {
                             hosts.Add(host);
                         }
@@ -157,7 +157,7 @@ namespace WebCrawler
             site.UrlsToScrape = counts.Item1;
             site.DiscoveredUrls = counts.Item2;
 
-            var task = Task.Run(() => scraper.Scrape(this.blockingQueue));
+            var task = Task.Run(() => scraper.Scrape(this.blockingQueue, new Scraper.Settings()));
 
             // scraper.Scrape() completes this loop
             while (!this.blockingQueue.IsCompleted)
@@ -220,30 +220,46 @@ namespace WebCrawler
         }
 
         /// <summary>Chooses seeds from user specified input and reconstructed graph.</summary>
-        private static HashSet<Uri> GetSeeds(Uri[] seeds, Graph graph)
+        private static Dictionary<Uri, int> GetSeeds(Uri[] seeds, Graph graph)
         {
-            var set = new HashSet<Uri>(seeds);
+            var seedsWithPriorities = new Dictionary<Uri, int>();
+
+            // Choosing user seeds which have not been fully discovered yet
+            foreach (var seed in seeds)
+            {
+                if ( !graph.Exists(seed) || !graph.Discovered(seed) )
+                {
+                    // Max priority
+                    seedsWithPriorities.Add(seed, int.MaxValue);
+                }
+            }
 
             var persistedHosts = graph.GetVertices();
             foreach (var host in persistedHosts)
             {
                 var key = new Uri("https://" + host);
-                
-                if (!graph.IsCompleted(key))
+                if (!graph.Discovered(key))
                 {
-                    set.Add(key);
+                    // Parent host is not fully discovered yet
+
+                    // Hosts added with a max priority for now
+                    seedsWithPriorities.Add(key, int.MaxValue);
                 }
-                else
+
+                var edges = graph.GetEdges(key);
+                foreach (var edge in edges)
                 {
-                    set.Remove(key);
+                    // Child might be fully discovered already
+                    if ( !graph.Exists(edge.Child) || !graph.Discovered(edge.Child) )
+                    {
+                        // Child weight is a priority
+                        seedsWithPriorities.Add(edge.Child, edge.Weight);
+                    }
                 }
             }
 
-            return set;
+            return seedsWithPriorities;
         }
-
-        /// <summary>Gets sites graph.</summary>
-        public Graph CrawlerGraph { get {return this.graph; } }
 
         public Crawler(Configuration configuration, Uri[] seeds, CancellationToken token)
         {
@@ -271,7 +287,9 @@ namespace WebCrawler
 
             this.graph = Graph.Reconstruct(this.configuration.OutputPath);
 
-            var nextSeeds = Crawler.GetSeeds(this.seeds, this.graph);
+            // TO-DO: priority queue should be implemented and used (see readme.md)
+            var seedsWithPriorities = Crawler.GetSeeds(this.seeds, this.graph);
+            var nextSeeds = seedsWithPriorities.OrderByDescending(s => s.Value).Select(s => s.Key).ToList();
 
             foreach (var seed in nextSeeds)
             {
@@ -293,7 +311,7 @@ namespace WebCrawler
 
                     this.RetrieveSitemap(site, policy);
 
-                    if (this.graph.IsVertex(seed))
+                    if (this.graph.Exists(seed))
                     {
                         Trace.TraceInformation(string.Format("Seed {0} has already been discovered", seed.Host));
 
@@ -312,7 +330,7 @@ namespace WebCrawler
                 
                     this.Start(seed, site);
 
-                    this.graph.MarkCompleted(seed);
+                    this.graph.MarkAsDiscovered(seed);
 
                     info = string.Format("Crawling {0} completed", seed.Host);
                     Trace.TraceInformation(info);
@@ -331,7 +349,7 @@ namespace WebCrawler
 
                     if (site.Configuration.SerializeGraph)
                     {
-                        this.graph.Serialize(site.GraphFile);
+                        this.graph.Persist(this.configuration.OutputPath, true);
                     }
 
                     // Deleting empty paths for downloaded html files
@@ -346,12 +364,6 @@ namespace WebCrawler
 
             this.RaiseStatusEvent("Crawling completed");
             this.RaiseProgressEvent(1.0);
-        }
-
-        /// <summary>Gets collection of sites connected to the specified host.</summary>
-        public Uri[] GetConnections(Uri host)
-        {
-            return this.graph.GetEdges(host);
         }
     }
 }

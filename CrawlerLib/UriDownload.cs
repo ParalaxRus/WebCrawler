@@ -21,9 +21,9 @@ namespace WebCrawler
                 }
                 catch (WebException exception)
                 {
-                    Trace.TraceError(string.Format("Failed to get {0}. Exception: {1}"), 
+                    Trace.TraceError(string.Format("Failed to get {0}. Exception: {1}", 
                                                    uri.LocalPath, 
-                                                   exception.Message);
+                                                   exception.Message));
 
                     response = (HttpWebResponse)exception.Response;
                 }

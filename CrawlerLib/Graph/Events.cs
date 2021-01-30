@@ -92,7 +92,7 @@ public class ProgressArgs : EventArgs
 }
 
 /// <summary>Graph events logic.</summary>
-public partial class Graph
+internal partial class Graph
 {
     #region Connection event
 
