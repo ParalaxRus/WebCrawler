@@ -26,7 +26,7 @@ namespace WebCrawler
 
             var seedUrls = new Uri[]
             {
-                new Uri("https://www.google.com/")
+                new Uri("https://play.google.com/")
             };
             var crawler = new Crawler(configuration, seedUrls, token.Token);
 
