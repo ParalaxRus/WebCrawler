@@ -25,8 +25,6 @@ namespace WebCrawler
         /// <summary>Hosts graph.</summary>
         private Graph graph = new Graph();
 
-        private BlockingCollection<string> blockingQueue = new BlockingCollection<string>();
-
         private Regex hrefPattern = new Regex("href\\s*=\\s*(?:\"(?<1>[^\"]*)\"|(?<1>\\S+))",
                                               RegexOptions.IgnoreCase);
 
@@ -157,12 +155,14 @@ namespace WebCrawler
             site.UrlsToScrape = counts.Item1;
             site.DiscoveredUrls = counts.Item2;
 
-            var task = Task.Run(() => scraper.Scrape(this.blockingQueue, new Scraper.Settings()));
+            var blockingQueue = new BlockingCollection<string>();
+
+            var task = Task.Run(() => scraper.Scrape(blockingQueue, new Scraper.Settings()));
 
             // scraper.Scrape() completes this loop
-            while (!this.blockingQueue.IsCompleted)
+            while (!blockingQueue.IsCompleted)
             {
-                var htmlFile = this.blockingQueue.Take();
+                var htmlFile = blockingQueue.Take();
 
                 var nextHosts = this.ParseHosts(htmlFile, site.Configuration.DeleteHtmlAfterScrape);
 
@@ -213,29 +213,37 @@ namespace WebCrawler
             else
             {
                 // Need to dynamically obtain sitemap graph
-                throw new NotImplementedException();
+                throw new NotImplementedException(
+                    "Sitemap not found. Dynamic sitemap retrieval is not supported yet");
             }
 
             this.RaiseStatusEvent(string.Format("{0} sitemap obtained", site.Url.Host));
         }
 
-        /// <summary>Chooses seeds from user specified input and reconstructed graph.</summary>
-        private static Dictionary<Uri, int> GetSeeds(Uri[] seeds, Graph graph)
+        /// <summary>Creates initial queue from user seeds.</summary>
+        private static Queue<Tuple<Uri, int>> CreateInitialQueue(Uri[] seeds)
         {
-            var seedsWithPriorities = new Dictionary<Uri, int>();
+            var queue = new Queue<Tuple<Uri, int>>();
 
-            // Choosing user seeds which have not been fully discovered yet
             foreach (var seed in seeds)
             {
-                if ( !graph.Exists(seed) || !graph.Discovered(seed) )
-                {
-                    // Max priority
-                    seedsWithPriorities.Add(seed, int.MaxValue);
-                }
+                // User seed has a max priority
+                queue.Enqueue(new Tuple<Uri, int>(seed, int.MaxValue));
             }
 
-            var persistedHosts = graph.GetVertices();
-            foreach (var host in persistedHosts)
+            return queue;
+        }
+
+        /// <summary>Selecting seeds from existing queue and graph seeds.</summary>
+        private static Queue<Tuple<Uri, int>> SelectSeeds(Queue<Tuple<Uri, int>> seeds, Graph graph)
+        {
+            // TO-DO: use a custom priority queue instead
+
+            var next = new Queue<Tuple<Uri, int>>();
+
+            // Graph seeds
+            var hosts = graph.GetVertices();
+            foreach (var host in hosts)
             {
                 var key = new Uri("https://" + host);
                 if (!graph.Discovered(key))
@@ -243,9 +251,10 @@ namespace WebCrawler
                     // Parent host is not fully discovered yet
 
                     // Hosts added with a max priority for now
-                    seedsWithPriorities.Add(key, int.MaxValue);
+                    next.Enqueue(new Tuple<Uri, int>(key, int.MaxValue));
                 }
 
+                // Connected sites should be added to seeds as well
                 var edges = graph.GetEdges(key);
                 foreach (var edge in edges)
                 {
@@ -253,12 +262,25 @@ namespace WebCrawler
                     if ( !graph.Exists(edge.Child) || !graph.Discovered(edge.Child) )
                     {
                         // Child weight is a priority
-                        seedsWithPriorities.Add(edge.Child, edge.Weight);
+                        next.Enqueue(new Tuple<Uri, int>(edge.Child, edge.Weight));
                     }
                 }
             }
 
-            return seedsWithPriorities;
+            // Existing seeds
+            foreach (var seed in seeds)
+            {
+                if ( !graph.Exists(seed.Item1) || !graph.Discovered(seed.Item1) )
+                {
+                    // Max priority
+                    next.Enqueue(seed);
+                }
+            }
+
+            var tmp = next.OrderByDescending(s => s.Item2);
+            var nextQueue = new Queue<Tuple<Uri, int>>(tmp);
+
+            return nextQueue;
         }
 
         public Crawler(Configuration configuration, Uri[] seeds, CancellationToken token)
@@ -287,12 +309,13 @@ namespace WebCrawler
 
             this.graph = Graph.Reconstruct(this.configuration.OutputPath);
 
-            // TO-DO: priority queue should be implemented and used (see readme.md)
-            var seedsWithPriorities = Crawler.GetSeeds(this.seeds, this.graph);
-            var nextSeeds = seedsWithPriorities.OrderByDescending(s => s.Value).Select(s => s.Key).ToList();
+            var initialQueue = Crawler.CreateInitialQueue(this.seeds);
+            var queue = Crawler.SelectSeeds(initialQueue, this.graph);
 
-            foreach (var seed in nextSeeds)
+            while (queue.Count != 0)
             {
+                var seed = queue.Dequeue().Item1;
+
                 if (this.cancellationToken.IsCancellationRequested)
                 {
                     Trace.TraceInformation("Crawl cancel requested");
@@ -335,10 +358,17 @@ namespace WebCrawler
                     info = string.Format("Crawling {0} completed", seed.Host);
                     Trace.TraceInformation(info);
                     this.RaiseStatusEvent(info);
+
+                    // Updating seeds
+                    queue = Crawler.SelectSeeds(queue, this.graph);
                 }
                 catch (Exception exception)
                 {
                     Trace.TraceError(string.Format("Failed to crawl {0}. {1}", seed.Host, exception.Message));
+
+                    // Avoid crawling this host until a bug fix or 
+                    // functionality implemented (should throw NotImplementedException)
+                    this.graph.MarkAsDoNotProcess(seed);
                 }
                 finally
                 {
@@ -353,7 +383,7 @@ namespace WebCrawler
                     }
 
                     // Deleting empty paths for downloaded html files
-                    if (site.Configuration.DeleteHtmlAfterScrape)
+                    if ( site.Configuration.DeleteHtmlAfterScrape && Directory.Exists(site.HtmlDownloadPath) )
                     {
                         Directory.Delete(site.HtmlDownloadPath, true);
                     }

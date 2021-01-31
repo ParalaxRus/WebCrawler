@@ -112,6 +112,20 @@ internal partial class Graph
         value.Discovered = true;
     }
 
+    /// <summary>Marks vertex discovery field as discovered.</summary>
+    public void MarkAsDoNotProcess(Uri key)
+    {
+        if (!this.Exists(key))
+        {
+            return;
+        }
+
+        var value = this.GetVertex(key);
+
+        value.Edges.Clear();
+        value.Discovered = true;
+    }
+
     /// <summary>Gets vertex edges.</summary>
     public HashSet<Edge> GetEdges(Uri key)
     {
