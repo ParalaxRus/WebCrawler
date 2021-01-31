@@ -147,7 +147,7 @@ namespace WebCrawler
 
         /// <summary>Scrapes seed info and builds graph of the hosts with which 
         /// current seed url is connected.</summary>
-        private void Start(Uri host, Site site)
+        private void Start(Uri host, Site site, Policy policy)
         {
             // Dowloading html pages in parallel and adding them to the blocking queue
             var scraper = new Scraper(site.Map, site.HtmlDownloadPath, this.ScraperCallback, this.cancellationToken);
@@ -157,7 +157,10 @@ namespace WebCrawler
 
             var blockingQueue = new BlockingCollection<string>();
 
-            var task = Task.Run(() => scraper.Scrape(blockingQueue, new Scraper.Settings()));
+            var scrapeSettings = new Scraper.Settings(Scraper.Settings.DefaultCount, 
+                                                      policy.CrawlDelayInSecs, 
+                                                      Scraper.Settings.DefaultMaxDelay);
+            var task = Task.Run(() => scraper.Scrape(blockingQueue, scrapeSettings));
 
             // scraper.Scrape() completes this loop
             while (!blockingQueue.IsCompleted)
@@ -351,7 +354,7 @@ namespace WebCrawler
 
                     this.graph.AddVertex(seed, attributes);
                 
-                    this.Start(seed, site);
+                    this.Start(seed, site, policy);
 
                     this.graph.MarkAsDiscovered(seed);
 

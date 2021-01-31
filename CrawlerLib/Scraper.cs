@@ -12,20 +12,31 @@ namespace WebCrawler
         /// <summary>ScrapeSettings class.</summary>
         public class Settings
         {
+            /// <summary>Default number of pages to scrape from each site.</summary>
+            public const int DefaultCount = 6;
+
+            /// <summary>Minimum delay interval in seconds between pages download.</summary>
+            public const int DefaultMinDelay = 3;
+
+            /// <summary>Maximum delay interval in seconds between pages download.</summary>
+            public const int DefaultMaxDelay = 6;
+
             /// <summary>Gets number of pages to scrape from each site.</summary>
             public int Count { get; private set; }
 
-            /// <summary>Gets minimum delay interval in milleseconds between pages download.</summary>
+            /// <summary>Gets minimum delay interval in seconds between pages download.</summary>
             public int MinDelay { get; private set; }
 
-            /// <summary>Gets maximum delay interval in milleseconds between pages download.</summary>
+            /// <summary>Gets maximum delay interval in seconds between pages download.</summary>
             public int MaxDelay { get; private set; }
 
-            public Settings(int count = 12, int minDelayMs = 3, int maxDelayMs = 6)
+            public Settings(int count = Scraper.Settings.DefaultCount, 
+                            int minDelay = Scraper.Settings.DefaultMinDelay, 
+                            int maxDelay = Scraper.Settings.DefaultMaxDelay)
             {
                 this.Count = count;
-                this.MinDelay = minDelayMs;
-                this.MaxDelay = maxDelayMs;
+                this.MinDelay = minDelay;
+                this.MaxDelay = maxDelay;
             }
         }
 

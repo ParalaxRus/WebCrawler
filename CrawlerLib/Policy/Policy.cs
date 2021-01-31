@@ -104,12 +104,16 @@ namespace WebCrawler
         /// <summary>Checks whether policy is empty or not.</summary>
         public bool IsEmpty { get { return this.Site == null; } }
 
+        /// <summary>Gets or sets crawl delay in seconds.</summary>
+        public int CrawlDelayInSecs { get; set; }
+
         /// <summary>Empty policy constructor.</summary>
         public Policy()
         {
             this.Site = null;
             this.Agent = null;
             this.Sitemap = null;
+            this.CrawlDelayInSecs = Scraper.Settings.DefaultMinDelay;
         }
 
         public Policy(Uri site, string agent) : this()

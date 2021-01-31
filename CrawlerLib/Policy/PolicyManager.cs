@@ -71,6 +71,17 @@ namespace WebCrawler
                         // Site contains sitemap file with static site structure
                         this.sitemap = new Uri(value);
                     }
+                    else if (key == "crawl-delay:")
+                    {
+                        int minDelay = - 1;
+                        if (!Int32.TryParse(value, out minDelay))
+                        {
+                            minDelay = Scraper.Settings.DefaultMinDelay - 1;
+                        }
+
+                        // Adding extra second just in case
+                        this.policies[currentAgent].CrawlDelayInSecs = minDelay + 1;
+                    }
                 }
             }
         }
