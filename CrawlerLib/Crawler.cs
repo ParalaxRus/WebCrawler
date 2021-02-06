@@ -155,6 +155,14 @@ namespace WebCrawler
             site.UrlsToScrape = counts.Item1;
             site.DiscoveredUrls = counts.Item2;
 
+            // Making sure that host contains links to other sites
+            if (site.UrlsToScrape == 0)
+            {
+                Trace.TraceInformation(string.Format("Host {0} does not have external url links", host.Host));
+
+                return;
+            }
+
             var blockingQueue = new BlockingCollection<string>();
 
             var scrapeSettings = new Scraper.Settings(Scraper.Settings.DefaultCount, 
@@ -206,10 +214,12 @@ namespace WebCrawler
             {
                 // Static sitemap found
                 site.Map = new Sitemap(site.Url, 
-                                       policy.Sitemap,
+                                       policy.Sitemaps,
                                        site.Path, 
                                        site.Configuration.SaveSitemapFiles,
-                                       site.Configuration.SaveUrls);
+                                       site.Configuration.SaveUrls,
+                                       site.Configuration.HostUrlsLimit,
+                                       site.Configuration.SitemapIndexLimit);
 
                 site.Map.Build(policy);
             }

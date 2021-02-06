@@ -16,10 +16,13 @@ public class Configuration
     /// <summary>Gets or sets full path to the log file.</summary>
     public string LogFilePath { get; set; }
 
+    /// <summary>A value indicating whether to persist robots file or not.</summary>
     public bool SaveRobotsFile { get; set; }
 
+    /// <summary>A value indicating whether to persist sitemap files or not.</summary>
     public bool SaveSitemapFiles { get; set; }
     
+    /// <summary>A value indicating whether to persist urls or not.</summary>
     public bool SaveUrls { get; set; }
 
     /// <summary>A value indicating whether to delete every html page 
@@ -32,6 +35,16 @@ public class Configuration
 
     /// <summary>A value indicating whether to serialize graph object or not.</summary>
     public bool SerializeGraph { get; set; }
+
+    /// <summary>Gets or sets maximum urls per host to be scraped.</summary>
+    /// <remarks>Some hosts can have huge amount of html pages so its needed to 
+    /// set the limit otherwise crawler can get stuck on those sites.</remarks>
+    public int HostUrlsLimit {  get; set; }
+
+    /// <summary>Gets or sets maximum sitemap index files per host to be analyzed.</summary>
+    /// <remarks>Some hosts can have huge amount of index files so its needed to 
+    /// set the limit otherwise crawler can get stuck on those sites.</remarks>
+    public int SitemapIndexLimit {  get; set; }
 }
 
 }

@@ -96,10 +96,10 @@ namespace WebCrawler
         public bool IsRobots { get; set; }
 
         /// <summary>Checks whether site contains sitemap or not.</summary>
-        public bool IsSitemap { get { return this.Sitemap != null; }}
+        public bool IsSitemap { get { return (this.Sitemaps.Count != 0); }}
 
-        /// <summary>Gets or sets sitemap url if any.</summary>
-        public Uri Sitemap { get; set; }
+        /// <summary>Gets or sets sitemap urls if any.</summary>
+        public HashSet<Uri> Sitemaps { get; set; }
 
         /// <summary>Checks whether policy is empty or not.</summary>
         public bool IsEmpty { get { return this.Site == null; } }
@@ -112,7 +112,7 @@ namespace WebCrawler
         {
             this.Site = null;
             this.Agent = null;
-            this.Sitemap = null;
+            this.Sitemaps = new HashSet<Uri>();
             this.CrawlDelayInSecs = Scraper.Settings.DefaultMinDelay;
         }
 

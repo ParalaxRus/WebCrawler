@@ -2,10 +2,11 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Xml;
+using System.Linq;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace WebCrawler
 {
@@ -13,10 +14,15 @@ namespace WebCrawler
     public class Sitemap
     {
         private Uri host = null;
-        private Uri sitemap = null;
+
+        /// <summary>Links to the sitemap files.</summary>
+        private HashSet<Uri> sitemaps = null;
+
         private string rootPath = null;
         private bool saveSitemapFiles = true;
         private bool saveUrls = true;
+        private int maxUrlCount = 0;
+        private int maxIndexCount = 0;
         private Policy policy = null;
 
         /// <summary>Host links which are allowed to be scraped.</summary>
@@ -143,6 +149,15 @@ namespace WebCrawler
                     return urls;
                 }
 
+                // Sitemap file could be compressed
+                if (GZip.IsGZip(fileOnDisk))
+                {
+                    string tmp = fileOnDisk + "." + Guid.NewGuid().ToString();
+
+                    GZip.Decompress(fileOnDisk, tmp);
+                    File.Move(tmp, fileOnDisk, true);
+                }
+                
                 this.Parse(fileOnDisk, urls[0], urls[1]);
             }
             finally
@@ -157,8 +172,9 @@ namespace WebCrawler
             return urls;
         }
 
-        /// <summary>Refactor - looks ugly !</summary>
-        private void AddNext(Queue<Uri> indices, HashSet<Uri> urls, HashSet<Uri>[] next, bool isThreadSafe)
+        /// <summary>Adds next urls and indices to the current ones for a further processing.</summary>
+        /// <remarks>Thread unsafe.<remarks>
+        private bool AddNext(Queue<Uri> indices, HashSet<Uri> urls, HashSet<Uri>[] next)
         {
             var indexUrls = next[0];
             var regularUrls = next[1];
@@ -177,17 +193,7 @@ namespace WebCrawler
                     continue;
                 }
 
-                if (isThreadSafe)
-                {
-                    indices.Enqueue(index);
-                }
-                else
-                {
-                    lock (indices)
-                    {
-                        indices.Enqueue(index);
-                    }
-                }
+                indices.Enqueue(index);
             }
 
             // Regular urls
@@ -203,75 +209,38 @@ namespace WebCrawler
                     continue;
                 }
 
-                if (isThreadSafe)
+                urls.Add(regular);
+                ++this.discoveredUrls;
+
+                if (urls.Count == this.maxUrlCount)
                 {
-                    urls.Add(regular);
-                }
-                else
-                {
-                    lock (urls)
-                    {
-                        urls.Add(regular);
-                    }
+                    // Pages to scrape limit reached. 
+                    // Sitemap urls retrieving process should be stopped
+                    return false;
                 }
             }
 
-            if (isThreadSafe)
-            {
-                this.discoveredUrls += next[1].Count;
-            }
-            else
-            {
-                Interlocked.Add(ref this.discoveredUrls, next[1].Count);
-            }
+            return true;
         }
 
-        private HashSet<Uri> RetrieveUsingSitemap(Uri sitemapIndex)
+        /// <summary>Gets host urls links.</summary>
+        private HashSet<Uri> RetrieveUsingSitemapParallel(HashSet<Uri> sitemaps)
         {
             var urls = new HashSet<Uri>();
-
             var visited = new HashSet<string>();
 
-            var sitemapIndices = new Queue<Uri>();
-            sitemapIndices.Enqueue(sitemapIndex);
-
-            while (sitemapIndices.Count != 0)
-            {
-                var currentIndex = sitemapIndices.Dequeue();
-
-                var indexLocalPath = currentIndex.LocalPath;
-                if (visited.Contains(indexLocalPath))
-                {
-                    continue;
-                }
-                visited.Add(indexLocalPath);
-
-                var next = this.DownloadAndParse(currentIndex);
-
-                this.AddNext(sitemapIndices, urls, next, true);
-            }
-
-            return urls;
-        }
-
-        private HashSet<Uri> RetrieveUsingSitemapParallel(Uri sitemapindex)
-        {
-            var urls = new HashSet<Uri>();
-
-            var visited = new HashSet<string>();
-
-            // Dump BFS parallelism processing each level in parallel but syncing between levels
+            // Dumb BFS parallelism processing each level in parallel but syncing between levels
             // Refactor some sort of a blocking queue is preferrable but need to figure out 
             // proper producer consumer and parallel bfs with the blocking queue in this case ...
 
-            var sitemapIndices = new Queue<Uri>();
-            sitemapIndices.Enqueue(sitemapindex);
+            var sitemapIndices = new Queue<Uri>(sitemaps);
 
             while (sitemapIndices.Count != 0)
             {
+                bool limitReached = false;
                 var nextLevelIndices = new Queue<Uri>();
 
-                Parallel.ForEach(sitemapIndices, (Uri currentIndex) => 
+                Parallel.ForEach(sitemapIndices, (currentIndex, state) => 
                 {
                     var indexLocalPath = currentIndex.LocalPath;
                     
@@ -287,11 +256,35 @@ namespace WebCrawler
                     
                     var next = this.DownloadAndParse(currentIndex);
 
-                    this.AddNext(nextLevelIndices, urls, next, false);
+                    lock (urls)
+                    {
+                        if (!limitReached)
+                        {
+                            if (!this.AddNext(nextLevelIndices, urls, next))
+                            {
+                                limitReached = true;
+                                state.Break();
+                            }
+                        }
+                    }
 
                 }); // Completes when all urls from the same levels are processed
 
-                sitemapIndices = nextLevelIndices;
+                if (!limitReached)
+                {
+                    sitemapIndices = nextLevelIndices;
+
+                    // sitemapIndices can get big up to 10^5 or even more. Redesign ?!
+                    if (sitemapIndices.Count > this.maxIndexCount)
+                    {
+                        sitemapIndices = new Queue<Uri>(sitemapIndices.Take(this.maxIndexCount));
+                    }
+                }
+                else
+                {
+                    // Stopping the retrieval process
+                    sitemapIndices.Clear();
+                }
             }
 
             return urls;
@@ -300,7 +293,7 @@ namespace WebCrawler
         /// <summary>Collects links to host pages which could be scraped.</summary>
         private HashSet<Uri> RetrieveUrls()
         {
-            if (this.sitemap == null)
+            if (this.sitemaps == null)
             {
                 // Not provided
                 return new HashSet<Uri>();
@@ -309,7 +302,7 @@ namespace WebCrawler
             var watch = new Stopwatch();
             watch.Start();
 
-            var urls = this.RetrieveUsingSitemapParallel(this.sitemap);
+            var urls = this.RetrieveUsingSitemapParallel(this.sitemaps);
 
             watch.Stop();
 
@@ -334,7 +327,13 @@ namespace WebCrawler
             }
         }
 
-        public Sitemap(Uri rootUrl, Uri sitemap, string rootPath, bool saveSitemapFiles = true, bool saveUrls = true)
+        public Sitemap(Uri          rootUrl, 
+                       HashSet<Uri> sitemapFiles, 
+                       string       rootPath, 
+                       bool         saveSitemapFiles, 
+                       bool         saveUrls,
+                       int          maxUrlCount,
+                       int          maxIndexCount)
         {
             if (rootUrl == null)
             {
@@ -347,10 +346,12 @@ namespace WebCrawler
             }
 
             this.host = rootUrl;
-            this.sitemap = sitemap;
+            this.sitemaps = sitemapFiles;
             this.rootPath = Path.Combine(rootPath, "Sitemap");
             this.saveSitemapFiles = saveSitemapFiles;
             this.saveUrls = saveUrls;
+            this.maxUrlCount = maxUrlCount;
+            this.maxIndexCount = maxIndexCount;
         }
 
         public void Build(Policy policy)

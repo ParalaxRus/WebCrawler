@@ -16,7 +16,7 @@ namespace WebCrawler
 
         private bool robotsDetected = false;
 
-        private Uri sitemap = null;
+        private HashSet<Uri> sitemaps = null;
 
         /// <summary>Agents to policies table.</summary>
         private Dictionary<string, Policy> policies = new Dictionary<string, Policy>();
@@ -69,7 +69,7 @@ namespace WebCrawler
                     else if (key == "sitemap:")
                     {
                         // Site contains sitemap file with static site structure
-                        this.sitemap = new Uri(value);
+                        this.sitemaps.Add(new Uri(value));
                     }
                     else if (key == "crawl-delay:")
                     {
@@ -106,6 +106,7 @@ namespace WebCrawler
             this.site = siteUrl;
             this.robotsUrl = robotsUrl;
             this.robotsPath = robotsPath;
+            this.sitemaps = new HashSet<Uri>();
         }
 
         /// <summary>Gets policy for the specified agent.</summary>
@@ -122,7 +123,7 @@ namespace WebCrawler
 
             // Following settings are applied to all agents
             // Maybe refactor because they don't really belong to agent policy
-            current.Sitemap = this.sitemap;
+            current.Sitemaps = this.sitemaps;
             current.IsRobots = this.robotsDetected;
 
             return current;

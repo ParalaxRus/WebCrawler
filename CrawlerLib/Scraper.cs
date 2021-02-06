@@ -182,17 +182,15 @@ namespace WebCrawler
                 throw new ApplicationException("Call GeneratePagesToScrape() first");
             }
 
-            if (this.pagesToScrape.Count == 0)
+            try
             {
-                // Host does not refer to other sites
-                return;
+                // Slowly and randomly downloading html pages in order not to be banned by the site
+                this.SlowSequentialDownload(this.pagesToScrape, settings, queue);
             }
-
-            // Slowly and randomly downloading html pages in order not to be banned by the site
-            this.SlowSequentialDownload(this.pagesToScrape, settings, queue);
-
-            // No more html links left for the current site
-            queue.CompleteAdding();
+            finally
+            {
+                queue.CompleteAdding();
+            }
         }
     }
 }

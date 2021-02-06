@@ -31,6 +31,5 @@ To-Do:
  3) Implement c# priority queue with a hashset for a lookup (inherit from 2)
 
 Sites for which crawler fails:
- - play.google.com (goes into recursion on sitemap retrieval)
  - twitter.com (blockingqueue blocks indefinitely. Seems that 
    sitemap.txt file is empty somehow)

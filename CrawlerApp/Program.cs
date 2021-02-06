@@ -19,14 +19,16 @@ namespace WebCrawler
                 SaveUrls = true,
                 DeleteHtmlAfterScrape = true,
                 SerializeSite = true,
-                SerializeGraph = true
+                SerializeGraph = true,
+                HostUrlsLimit = 1000,
+                SitemapIndexLimit = 1000
             };
 
             var token = new CancellationTokenSource();
 
             var seedUrls = new Uri[]
             {
-                new Uri("https://play.google.com/")
+                new Uri("https://www.google.com/")
             };
             var crawler = new Crawler(configuration, seedUrls, token.Token);
 
