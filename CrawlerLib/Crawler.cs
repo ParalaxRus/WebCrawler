@@ -390,8 +390,9 @@ namespace WebCrawler
                         File.Delete(site.RobotsPath);
                     }
 
-                    if (site.Configuration.SerializeGraph)
+                    if (this.configuration.SerializeGraph)
                     {
+                        // Saving vertices under separate paths
                         this.graph.Persist(this.configuration.OutputPath, true);
                     }
 
@@ -403,6 +404,12 @@ namespace WebCrawler
 
                     site.Serialize();
                 }   
+            }
+
+            if (this.configuration.SerializeGraph)
+            {
+                // Persisting graph as a whole
+                this.graph.Serialize(this.configuration.GraphFilePath);
             }
 
             this.RaiseStatusEvent("Crawling completed");

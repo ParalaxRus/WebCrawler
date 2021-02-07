@@ -30,6 +30,4 @@ To-Do:
  2) Implement c# priority queue for seeds in crawler
  3) Implement c# priority queue with a hashset for a lookup (inherit from 2)
 
-Sites for which crawler fails:
- - twitter.com (blockingqueue blocks indefinitely. Seems that 
-   sitemap.txt file is empty somehow)
+Issues/bugs:

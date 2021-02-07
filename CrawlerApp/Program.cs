@@ -7,6 +7,30 @@ namespace WebCrawler
 {
     class Program
     {
+        private static void WaitUntilCompletedOrKeyPressed(CancellationTokenSource token, Task task)
+        {
+            Console.WriteLine("Press 'q' to stop");
+
+            while (true)
+            {
+                Thread.Sleep(500);
+
+                if (task.IsCompleted)
+                {
+                    break;
+                }
+
+                if (Console.KeyAvailable) 
+                {
+                    if (Console.ReadKey(true).Key == ConsoleKey.Q)
+                    {
+                        token.Cancel();
+                        break;
+                    }
+                }
+            }
+        }
+
         public static void Main(string[] args)
         {
             var configuration = new Configuration()
@@ -14,6 +38,7 @@ namespace WebCrawler
                 EnableLog = true,
                 OutputPath = Path.Join(Directory.GetCurrentDirectory(), "output"),
                 LogFilePath = Path.Join(Directory.GetCurrentDirectory(), "output/crawler.log"),
+                GraphFilePath = Path.Join(Directory.GetCurrentDirectory(), "output/graph.json"),
                 SaveRobotsFile = true,
                 SaveSitemapFiles = false,
                 SaveUrls = true,
@@ -28,7 +53,7 @@ namespace WebCrawler
 
             var seedUrls = new Uri[]
             {
-                new Uri("https://www.google.com/")
+                new Uri("https://www.google.com")
             };
             var crawler = new Crawler(configuration, seedUrls, token.Token);
 
@@ -36,6 +61,8 @@ namespace WebCrawler
             {
                 crawler.Crawl();
             });
+
+            Program.WaitUntilCompletedOrKeyPressed(token, task);
 
             task.Wait();
             token.Dispose();

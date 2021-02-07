@@ -16,6 +16,9 @@ public class Configuration
     /// <summary>Gets or sets full path to the log file.</summary>
     public string LogFilePath { get; set; }
 
+    /// <summary>Gets or sets full path to the serialized graph file.</summary>
+    public string GraphFilePath { get; set; }
+
     /// <summary>A value indicating whether to persist robots file or not.</summary>
     public bool SaveRobotsFile { get; set; }
 
