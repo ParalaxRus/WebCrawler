@@ -1,0 +1,3 @@
+[submodule "PriorityQueue"]
+	path = PriorityQueue
+	url = https://github.com/ParalaxRus/PriorityQueue.git
