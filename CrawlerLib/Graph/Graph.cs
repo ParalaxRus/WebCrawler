@@ -41,12 +41,15 @@ internal partial class Graph
         return ( (key != null) && this.graph.ContainsKey(key.Host) );
     }
 
-    /// <summary>Checks whether host is fully discovered or not.</summary>
+    /// <summary>Checks whether host exists and fully discovered or not.</summary>
     public bool Discovered(Uri key)
     {
-        var value = this.GetVertex(key);
+        if (!this.Exists(key))
+        {
+            return false;
+        }
 
-        return value.Discovered;
+        return this.graph[key.Host].Discovered;
     }
 
     /// <summary>Gets collection of keys.</summary>

@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Runtime.CompilerServices;
 using System.Linq;
+using PriorityQueueLib;
 
 [assembly:InternalsVisibleTo("CrawlerTests")]
 
@@ -233,26 +234,35 @@ namespace WebCrawler
             this.RaiseStatusEvent(string.Format("{0} sitemap obtained", site.Url.Host));
         }
 
-        /// <summary>Creates initial queue from user seeds.</summary>
-        private static Queue<Tuple<Uri, int>> CreateInitialQueue(Uri[] seeds)
+        /// <summary>Creates queue from user provided seeds.</summary>
+        private static PriorityLookupQueue<int, Uri> CreateQueue(Graph graph, Uri[] seeds)
         {
-            var queue = new Queue<Tuple<Uri, int>>();
+            var queue = new PriorityLookupQueue<int, Uri>();
 
+            // Adding user provided seeds if not discovered yet
             foreach (var seed in seeds)
             {
+                if (graph.Discovered(seed))
+                {
+                    // TO-DO: add support to discovery expiration
+                    continue;
+                }
+
                 // User seed has a max priority
-                queue.Enqueue(new Tuple<Uri, int>(seed, int.MaxValue));
+                queue.Enqueue(int.MaxValue, seed);
             }
+
+            // Updating with hosts from just deserialized graph 
+            Crawler.UpdateQueue(graph, queue);
 
             return queue;
         }
 
-        /// <summary>Selecting seeds from existing queue and graph seeds.</summary>
-        private static Queue<Tuple<Uri, int>> SelectSeeds(Queue<Tuple<Uri, int>> seeds, Graph graph)
+        /// <summary>Selecting seeds from graph and queue seeds.</summary>
+        private static void UpdateQueue(Graph graph, PriorityLookupQueue<int, Uri> queue)
         {
-            // TO-DO: use a custom priority queue instead
-
-            var next = new Queue<Tuple<Uri, int>>();
+            // Graph is being updated with the hosts children
+            // They have to be included into the queue
 
             // Graph seeds
             var hosts = graph.GetVertices();
@@ -262,38 +272,24 @@ namespace WebCrawler
                 if (!graph.Discovered(key))
                 {
                     // Parent host is not fully discovered yet
+                    // TO-DO: add support to discovery expirationS
 
                     // Hosts added with a max priority for now
-                    next.Enqueue(new Tuple<Uri, int>(key, int.MaxValue));
+                    queue.Enqueue(int.MaxValue, key);
                 }
 
-                // Connected sites should be added to seeds as well
+                // Adding children (connected sites)
                 var edges = graph.GetEdges(key);
                 foreach (var edge in edges)
                 {
                     // Child might be fully discovered already
-                    if ( !graph.Exists(edge.Child) || !graph.Discovered(edge.Child) )
+                    // TO-DO: add support to discovery expiration
+                    if (!graph.Discovered(edge.Child))
                     {
-                        // Child weight is a priority
-                        next.Enqueue(new Tuple<Uri, int>(edge.Child, edge.Weight));
+                        queue.Enqueue(edge.Weight, edge.Child);
                     }
                 }
             }
-
-            // Existing seeds
-            foreach (var seed in seeds)
-            {
-                if ( !graph.Exists(seed.Item1) || !graph.Discovered(seed.Item1) )
-                {
-                    // Max priority
-                    next.Enqueue(seed);
-                }
-            }
-
-            var tmp = next.OrderByDescending(s => s.Item2);
-            var nextQueue = new Queue<Tuple<Uri, int>>(tmp);
-
-            return nextQueue;
         }
 
         public Crawler(Configuration configuration, Uri[] seeds, CancellationToken token)
@@ -322,12 +318,10 @@ namespace WebCrawler
 
             this.graph = Graph.Reconstruct(this.configuration.OutputPath);
 
-            var initialQueue = Crawler.CreateInitialQueue(this.seeds);
-            var queue = Crawler.SelectSeeds(initialQueue, this.graph);
-
+            var queue = Crawler.CreateQueue(this.graph, this.seeds);
             while (queue.Count != 0)
             {
-                var seed = queue.Dequeue().Item1;
+                var seed = queue.Dequeue().Value;
 
                 if (this.cancellationToken.IsCancellationRequested)
                 {
@@ -349,7 +343,7 @@ namespace WebCrawler
 
                     if (this.graph.Exists(seed))
                     {
-                        Trace.TraceInformation(string.Format("Seed {0} has already been discovered", seed.Host));
+                        Trace.TraceInformation(string.Format("Seed {0} exists in the graph", seed.Host));
 
                         // TO-DO: Rediscover in case if seed info is outdated
 
@@ -372,8 +366,7 @@ namespace WebCrawler
                     Trace.TraceInformation(info);
                     this.RaiseStatusEvent(info);
 
-                    // Updating seeds
-                    queue = Crawler.SelectSeeds(queue, this.graph);
+                    Crawler.UpdateQueue(this.graph, queue);
                 }
                 catch (Exception exception)
                 {
