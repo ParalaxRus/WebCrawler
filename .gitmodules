@@ -1,0 +1,3 @@
+[submodule "NetCollections"]
+	path = NetCollections
+	url = https://github.com/ParalaxRus/NetCollections.git

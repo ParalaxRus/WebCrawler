@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\PriorityQueue\PriorityQueueLib\PriorityQueueLib.csproj" />
+    <ProjectReference Include="..\NetCollections\NetCollections\NetCollections.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

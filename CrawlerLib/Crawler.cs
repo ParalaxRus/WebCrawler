@@ -8,7 +8,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Runtime.CompilerServices;
 using System.Linq;
-using PriorityQueueLib;
+using NetCollections;
 
 [assembly:InternalsVisibleTo("CrawlerTests")]
 
