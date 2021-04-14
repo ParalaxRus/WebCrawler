@@ -27,7 +27,5 @@ Notes:
 
 To-Do:
  1) Figure out Uri scheme with graph issue (for now its restricted to https)
- 2) Implement c# priority queue for seeds in crawler
- 3) Implement c# priority queue with a hashset for a lookup (inherit from 2)
 
 Issues/bugs:
